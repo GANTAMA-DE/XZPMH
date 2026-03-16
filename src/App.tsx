@@ -511,10 +511,11 @@ export function App() {
   const [settingsForm, setSettingsForm] = useState({
     password: "",
     totalRounds: 10,
-    initialSpiritStone: 20000,
-    entryFee: 200,
+    initialSpiritStone: 500000,
+    entryFee: 10000,
     maxPlayers: 6,
     hintRounds: [1, 3] as number[],
+    multipliers: [2, 1.6, 1.4, 1.2, 1] as number[],
     allowDuplicateRoles: true,
   });
 
@@ -558,6 +559,7 @@ export function App() {
           entryFee: payload.room.settings.entryFee,
           maxPlayers: payload.room.settings.maxPlayers,
           hintRounds: Array.isArray(payload.room.settings.hintRounds) ? payload.room.settings.hintRounds : [1, 3],
+          multipliers: Array.isArray(payload.room.settings.multipliers) ? payload.room.settings.multipliers : [2, 1.6, 1.4, 1.2, 1],
           allowDuplicateRoles: Boolean(payload.room.settings.allowDuplicateRoles),
         });
       }
@@ -811,12 +813,24 @@ export function App() {
   }
 
   function createRoom() {
-    if (!playerName.trim()) return;
+    if (!playerName.trim()) {
+      setUiDialog({ title: "无法创建房间", message: "请先填写道号。" });
+      return;
+    }
     socket.emit(
       "room:create",
-      { name: playerName.trim(), maxPlayers: settingsForm.maxPlayers, hintRounds: settingsForm.hintRounds, password },
+      {
+        name: playerName.trim(),
+        maxPlayers: settingsForm.maxPlayers,
+        hintRounds: settingsForm.hintRounds,
+        multipliers: settingsForm.multipliers,
+        password,
+      },
       (res: any) => {
-        if (!res?.ok) return;
+        if (!res?.ok) {
+          setUiDialog({ title: "无法创建房间", message: res?.message || "创建失败" });
+          return;
+        }
         persistIdentity(playerName.trim(), res.token);
       }
     );
@@ -824,7 +838,14 @@ export function App() {
 
   function joinRoom(targetRoomId?: string) {
     const finalRoomId = (targetRoomId || joinRoomId).trim().toUpperCase();
-    if (!playerName.trim() || !finalRoomId) return;
+    if (!playerName.trim()) {
+      setUiDialog({ title: "无法加入房间", message: "请先填写道号。" });
+      return;
+    }
+    if (!finalRoomId) {
+      setUiDialog({ title: "无法加入房间", message: "请输入房间ID。" });
+      return;
+    }
     socket.emit("room:join", { name: playerName.trim(), roomId: finalRoomId, password }, (res: any) => {
       if (!res?.ok) {
         setUiDialog({ title: "无法加入房间", message: res?.message || "加入失败" });
@@ -960,16 +981,16 @@ export function App() {
       {!room && (
         <main className="mx-auto grid max-w-[1500px] gap-4 p-4 xl:grid-cols-[360px_1fr]">
           <section className="space-y-4">
-            <div className="rounded-3xl border border-amber-400/15 bg-black/35 p-5 shadow-[0_0_40px_rgba(245,158,11,0.08)] backdrop-blur-xl">
+            <div className="rounded-3xl border border-amber-400/15 bg-black/35 p-4 sm:p-5 shadow-[0_0_40px_rgba(245,158,11,0.08)] backdrop-blur-xl">
               <h2 className="mb-4 text-lg text-amber-200">开辟洞府房间</h2>
               <input className="mb-3 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" placeholder="你的道号" value={playerName} onChange={(e) => setPlayerName(e.target.value)} />
               <input className="mb-3 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" placeholder="房间密码（可空）" value={password} onChange={(e) => setPassword(e.target.value)} />
               <label className="mb-2 block text-sm text-zinc-400">加入人数上限（2-16）</label>
-              <input type="number" min={2} max={16} className="mb-4 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.maxPlayers} onChange={(e) => setSettingsForm((s) => ({ ...s, maxPlayers: Math.max(2, Math.min(16, Number(e.target.value) || 6)) }))} />
+              <input type="number" min={2} max={16} className="mb-3 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.maxPlayers} onChange={(e) => setSettingsForm((s) => ({ ...s, maxPlayers: Math.max(2, Math.min(16, Number(e.target.value) || 6)) }))} />
               <button className="w-full rounded-xl border border-amber-400/30 bg-amber-500/10 py-2 text-amber-100" onClick={createRoom}>创建房间</button>
             </div>
 
-            <div className="rounded-3xl border border-cyan-400/15 bg-black/35 p-5 shadow-[0_0_40px_rgba(34,211,238,0.08)] backdrop-blur-xl">
+            <div className="rounded-3xl border border-cyan-400/15 bg-black/35 p-4 sm:p-5 shadow-[0_0_40px_rgba(34,211,238,0.08)] backdrop-blur-xl">
               <h2 className="mb-4 text-lg text-cyan-200">按房间ID进入</h2>
               <input className="mb-3 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" placeholder="你的道号" value={playerName} onChange={(e) => setPlayerName(e.target.value)} />
               <input className="mb-3 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 uppercase" placeholder="房间ID" value={joinRoomId} onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())} />
@@ -1087,9 +1108,10 @@ export function App() {
                 <p>人数上限：{room.settings.maxPlayers}</p>
                 <p>回合数：{room.settings.totalRounds}</p>
                 <p>开局灵石：{room.settings.initialSpiritStone}</p>
-                <p>入场券：{room.settings.entryFee}</p>
+                <p>入场券：每回合 {room.settings.entryFee}</p>
                 <p>修士重复：{room.settings.allowDuplicateRoles ? "允许" : "禁止"}</p>
                 <p>系统提示轮次：{(room.settings.hintRounds || []).join("、") || "无"}</p>
+                <p>前5轮判定倍率：{(room.settings.multipliers || [2, 1.6, 1.4, 1.2, 1]).join(" / ")} 倍</p>
               </div>
             </section>
           </section>
@@ -1316,7 +1338,7 @@ export function App() {
                         <div className="overflow-x-auto whitespace-nowrap px-1">【{currentRound.realm}修士】的储物袋（{bagSummaryText}）</div>
                       </div>
                     </div>
-                    <div className="flex justify-end">
+                    <div className="flex flex-col items-end gap-1 text-right">
                       <span className={cn("font-semibold", actionCountdown <= 10 ? "text-rose-300" : "text-amber-100")}>第 {currentBidRound} 轮竞拍倒计时：{actionCountdown}s</span>
                     </div>
                   </div>
@@ -1506,7 +1528,11 @@ export function App() {
                 </button>
               </div>
 
-              <button className="h-14 min-w-[108px] rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 text-sm text-emerald-100 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt} onClick={submitBid}>提交竞价</button>
+              <HoverTip
+                side="top"
+                content={<><p className="text-emerald-100">提交竞价</p><p className="mt-1 text-zinc-300">本轮判定倍率：{((room?.settings?.multipliers || [2, 1.6, 1.4, 1.2, 1])[Math.min(currentBidRound, 5) - 1] ?? 1)} 倍</p></>}
+                label={<button className="h-14 min-w-[108px] rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 text-sm text-emerald-100 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt} onClick={submitBid}>提交竞价</button>}
+              />
               <button className="h-14 min-w-[88px] rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 text-sm text-fuchsia-100" onClick={() => { setCatalogFocusItemId(null); setShowCodex(true); }}>图鉴</button>
             </div>
           </section>
@@ -1522,8 +1548,8 @@ export function App() {
               <label className="text-sm text-zinc-300">房间密码<input className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.password} onChange={(e) => setSettingsForm((s) => ({ ...s, password: e.target.value }))} placeholder="可空" /></label>
               <label className="text-sm text-zinc-300">人数上限（2-16）<input type="number" min={2} max={16} className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.maxPlayers} onChange={(e) => setSettingsForm((s) => ({ ...s, maxPlayers: Math.max(2, Math.min(16, Number(e.target.value) || 6)) }))} /></label>
               <label className="text-sm text-zinc-300">回合数量<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.totalRounds} onChange={(e) => setSettingsForm((s) => ({ ...s, totalRounds: Number(e.target.value) || 10 }))} /></label>
-              <label className="text-sm text-zinc-300">开局灵石<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.initialSpiritStone} onChange={(e) => setSettingsForm((s) => ({ ...s, initialSpiritStone: Number(e.target.value) || 20000 }))} /></label>
-              <label className="text-sm text-zinc-300">入场券<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.entryFee} onChange={(e) => setSettingsForm((s) => ({ ...s, entryFee: Number(e.target.value) || 200 }))} /></label>
+              <label className="text-sm text-zinc-300">开局灵石<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.initialSpiritStone} onChange={(e) => setSettingsForm((s) => ({ ...s, initialSpiritStone: Number(e.target.value) || 500000 }))} /></label>
+              <label className="text-sm text-zinc-300">入场券（每回合）<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.entryFee} onChange={(e) => setSettingsForm((s) => ({ ...s, entryFee: Number(e.target.value) || 10000 }))} /></label>
               <label className="md:col-span-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-zinc-300">
                 <span>允许选择相同修士</span>
                 <input type="checkbox" checked={settingsForm.allowDuplicateRoles} onChange={(e) => setSettingsForm((s) => ({ ...s, allowDuplicateRoles: e.target.checked }))} />
@@ -1551,6 +1577,28 @@ export function App() {
                       </label>
                     );
                   })}
+                </div>
+              </div>
+              <div className="md:col-span-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-zinc-300">
+                <p className="mb-3 text-amber-100">判定倍率（竞拍成功需超出第二名的倍数）：</p>
+                <div className="grid gap-3 sm:grid-cols-5">
+                  {settingsForm.multipliers.map((value, index) => (
+                    <label key={`multiplier-${index}`} className="text-xs text-zinc-300">
+                      第{index + 1}轮
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm"
+                        value={value}
+                        onChange={(e) => {
+                          const next = [...settingsForm.multipliers];
+                          next[index] = Number(e.target.value) || [2, 1.6, 1.4, 1.2, 1][index];
+                          setSettingsForm((s) => ({ ...s, multipliers: next }));
+                        }}
+                      />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>

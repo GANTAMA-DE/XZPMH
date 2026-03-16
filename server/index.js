@@ -203,8 +203,8 @@ const DEFAULT_SETTINGS = {
   totalRounds: 10,
   hintRounds: [1, 3],
   multipliers: [2.0, 1.6, 1.4, 1.2, 1.0],
-  initialSpiritStone: 20000,
-  entryFee: 200,
+  initialSpiritStone: 500000,
+  entryFee: 10000,
   profitShareRate: 0.35,
   lossRebateRate: 0.25,
   allowDuplicateRoles: true,
@@ -318,6 +318,16 @@ function clampMaxPlayers(value) {
 function normalizeHintRounds(value, fallback = DEFAULT_SETTINGS.hintRounds) {
   if (!Array.isArray(value)) return [...fallback];
   return [...new Set(value.map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= 5))].sort((a, b) => a - b);
+}
+
+function normalizeMultipliers(value, fallback = DEFAULT_SETTINGS.multipliers) {
+  if (!Array.isArray(value)) return [...fallback];
+  const parsed = value
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .slice(0, 5);
+  if (parsed.length !== 5) return [...fallback];
+  return parsed;
 }
 
 function getRoomRoleSelectionMap(room) {
@@ -1983,6 +1993,7 @@ io.on("connection", (socket) => {
         maxPlayers: clampMaxPlayers(payload?.maxPlayers || DEFAULT_SETTINGS.maxPlayers),
         password: payload?.password || "",
         hintRounds: normalizeHintRounds(payload?.hintRounds, DEFAULT_SETTINGS.hintRounds),
+        multipliers: normalizeMultipliers(payload?.multipliers, DEFAULT_SETTINGS.multipliers),
         allowDuplicateRoles: DEFAULT_SETTINGS.allowDuplicateRoles,
       },
       players: [],
@@ -2060,6 +2071,7 @@ io.on("connection", (socket) => {
       password: typeof payload?.password === "string" ? payload.password : room.settings.password,
       maxPlayers: clampMaxPlayers(payload?.maxPlayers ?? room.settings.maxPlayers),
       hintRounds: normalizeHintRounds(payload?.hintRounds, room.settings.hintRounds),
+      multipliers: normalizeMultipliers(payload?.multipliers, room.settings.multipliers),
       totalRounds: Number(payload?.totalRounds || room.settings.totalRounds),
       initialSpiritStone: Number(payload?.initialSpiritStone || room.settings.initialSpiritStone),
       entryFee: Number(payload?.entryFee || room.settings.entryFee),

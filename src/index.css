@@ -109,4 +109,18 @@ button:focus-visible {
   body {
     min-height: 100dvh;
   }
+
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 13px;
+  }
+
+  body {
+    overscroll-behavior-y: contain;
+  }
 }
