@@ -1709,8 +1709,21 @@ function assignNextOwner(room) {
     room.ownerId = "";
     return;
   }
-  const online = room.players.find((p) => p.connected);
+  const online = room.players.find((p) => p.connected && !p.managed);
   room.ownerId = online?.id || room.players[0].id;
+}
+
+function removePlayerCompletely(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  if (player?.token) playerTokenMap.delete(player.token);
+  room.players = room.players.filter((p) => p.id !== playerId);
+  if (!room.players.length) {
+    rooms.delete(room.id);
+    return;
+  }
+  if (!room.players.find((p) => p.id === room.ownerId)) {
+    assignNextOwner(room);
+  }
 }
 
 function roomSummary(room) {
@@ -2009,6 +2022,14 @@ io.on("connection", (socket) => {
     rooms.set(roomId, room);
     playerTokenMap.set(tokenValue, { roomId, playerId: player.id });
     socket.join(roomId);
+    room.messageSeq += 1;
+    room.chat.push({
+      id: `${room.id}_${room.messageSeq}`,
+      senderId: "system",
+      senderName: "系统",
+      text: `${player.name}已进入房间。`,
+      time: nowText(),
+    });
     cb?.({ ok: true, roomId, token: tokenValue, playerId: player.id });
     emitState(io, room);
   });
@@ -2017,6 +2038,14 @@ io.on("connection", (socket) => {
     const roomId = String(payload?.roomId || "").trim().toUpperCase();
     const room = rooms.get(roomId);
     if (!room) {
+      cb?.({ ok: false, message: "房间不存在" });
+      return;
+    }
+    if (room.phase === "房间准备" && room.players.length > 0 && room.players.every((p) => !p.connected && p.managed)) {
+      room.players.forEach((p) => {
+        if (p.token) playerTokenMap.delete(p.token);
+      });
+      rooms.delete(room.id);
       cb?.({ ok: false, message: "房间不存在" });
       return;
     }
@@ -2039,6 +2068,19 @@ io.on("connection", (socket) => {
     room.players.push(player);
     playerTokenMap.set(tokenValue, { roomId, playerId: player.id });
     socket.join(roomId);
+    const owner = room.players.find((p) => p.id === room.ownerId);
+    if (!owner || !owner.connected || owner.managed) {
+      assignNextOwner(room);
+    }
+    room.messageSeq += 1;
+    room.chat.push({
+      id: `${room.id}_${room.messageSeq}`,
+      senderId: "system",
+      senderName: "系统",
+      text: `${player.name}已进入房间。`,
+      time: nowText(),
+    });
+    if (room.chat.length > 80) room.chat = room.chat.slice(-80);
     cb?.({ ok: true, roomId, token: tokenValue, playerId: player.id });
     emitState(io, room);
   });
@@ -2120,7 +2162,7 @@ io.on("connection", (socket) => {
     if (round.auction.submittedIds.includes(player.id)) return;
     if (round.auction.usedTools[player.id]) return;
     if (isBankrupt(player)) {
-      round.toolHints[player.id].push("道具提示：你已破产，无法继续使用道具。请等待本局结束。");
+      round.toolHints[player.id].push("占卜提示：你已破产，无法继续占卜。请等待本局结束。");
       emitState(io, room);
       return;
     }
@@ -2129,18 +2171,18 @@ io.on("connection", (socket) => {
     if (!tool) return;
     const history = round.auction.usedToolHistoryByPlayer[player.id] || [];
     if (history.includes(toolId)) {
-      round.toolHints[player.id].push(`道具提示：【${tool.name}】本回合已经使用过，不可再次动用。`);
+      round.toolHints[player.id].push(`占卜提示：【${tool.name}】本回合已经占卜过，不可再次施展。`);
       emitState(io, room);
       return;
     }
     if (player.spiritStone < tool.cost) {
-      round.toolHints[player.id].push(`道具提示：灵石不足，无法催动【${tool.name}】（需要${tool.cost}灵石）`);
+      round.toolHints[player.id].push(`占卜提示：灵石不足，无法施展【${tool.name}】（需要${tool.cost}灵石）`);
       emitState(io, room);
       return;
     }
 
     const rng = createRng(hashSeed(`${room.game.seedId || room.game.id}_${round.id}_${player.id}_${toolId}_${round.auction.bidRound}`));
-    const text = applyHint(tool.effect, round.intelByPlayer[player.id], round, rng, "道具");
+    const text = applyHint(tool.effect, round.intelByPlayer[player.id], round, rng, `占卜【${tool.name}】`);
     round.toolHints[player.id].push(`${text}（消耗${tool.cost}灵石）`);
     round.intelByPlayer[player.id].texts.push(text);
     round.auction.usedTools[player.id] = tool.id;
@@ -2265,6 +2307,46 @@ io.on("connection", (socket) => {
     cb?.({ ok: true });
   });
 
+  socket.on("room:kickPlayer", ({ playerId }, cb) => {
+    const found = findBySocket(socket);
+    if (!found) {
+      cb?.({ ok: false, message: "当前不在房间中" });
+      return;
+    }
+    const { room, player } = found;
+    if (room.phase !== "房间准备" || room.ownerId !== player.id) {
+      cb?.({ ok: false, message: "仅房主可在准备阶段踢人" });
+      return;
+    }
+    if (!playerId || playerId === player.id) {
+      cb?.({ ok: false, message: "无法踢出该玩家" });
+      return;
+    }
+    const target = room.players.find((p) => p.id === playerId);
+    if (!target) {
+      cb?.({ ok: false, message: "玩家不存在" });
+      return;
+    }
+    if (target.socketId) {
+      io.to(target.socketId).emit("room:kicked", { roomId: room.id });
+    }
+    if (target.socketId) {
+      io.sockets.sockets.get(target.socketId)?.leave(room.id);
+    }
+    removePlayerCompletely(room, target.id);
+    room.messageSeq += 1;
+    room.chat.push({
+      id: `${room.id}_${room.messageSeq}`,
+      senderId: "system",
+      senderName: "系统",
+      text: `${target.name}已被房主请离房间。`,
+      time: nowText(),
+    });
+    if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+    emitState(io, room);
+    cb?.({ ok: true });
+  });
+
   socket.on("disconnect", () => {
     const found = findBySocket(socket);
     if (!found) return;
@@ -2285,6 +2367,14 @@ io.on("connection", (socket) => {
         time: nowText(),
       });
       if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+    }
+
+    if (room.phase === "房间准备" && room.players.every((p) => !p.connected && p.managed)) {
+      room.players.forEach((p) => {
+        if (p.token) playerTokenMap.delete(p.token);
+      });
+      rooms.delete(room.id);
+      return;
     }
 
     const round = getCurrentRound(room);
