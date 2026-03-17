@@ -542,8 +542,8 @@ function ToolPopover({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs text-cyan-100">选择占卜</p>
-          <p className="text-[10px] text-zinc-400">同一占卜每回合仅可施展一次</p>
+          <p className="text-xs text-cyan-100">选择推演</p>
+          <p className="text-[10px] text-zinc-400">同一推演每回合仅可施展一次</p>
         </div>
         <button className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-zinc-300" onClick={onClose}>关闭</button>
       </div>
@@ -596,14 +596,17 @@ export function App() {
   const [showToolConfirm, setShowToolConfirm] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
-  const [codexVisibleCount, setCodexVisibleCount] = useState(60);
+  const [codexViewMode, setCodexViewMode] = useState<"list" | "card">("card");
+  const [catalogSort, setCatalogSort] = useState<{ key: "type" | "quality" | "size" | "price"; direction: "asc" | "desc" }>({
+    key: "type",
+    direction: "asc",
+  });
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [statsRoundTab, setStatsRoundTab] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState({ type: "全部", quality: "全部", shape: "全部", min: 0, max: 999999 });
   const [catalogFocusItemId, setCatalogFocusItemId] = useState<string | null>(null);
-  const [catalogDetailItem, setCatalogDetailItem] = useState<any | null>(null);
   const [statsAutoOpenedKey, setStatsAutoOpenedKey] = useState<string | null>(null);
   const [uiDialog, setUiDialog] = useState<{ title: string; message: string } | null>(null);
   const [settingsForm, setSettingsForm] = useState({
@@ -701,8 +704,13 @@ export function App() {
   }, [state?.room?.latestResult, state?.game, state?.selfId, statsAutoOpenedKey]);
 
   useEffect(() => {
-    if (showCodex) setCodexVisibleCount(60);
-  }, [showCodex, catalogFocusItemId, catalogFilter.type, catalogFilter.quality, catalogFilter.shape, catalogFilter.min, catalogFilter.max]);
+    if (showCodex) resetCatalogSort();
+  }, [showCodex]);
+
+  useEffect(() => {
+    if (showCodex && codexViewMode === "list") resetCatalogSort();
+  }, [showCodex, codexViewMode]);
+
 
   const room = state?.room;
   const game = state?.game;
@@ -788,7 +796,7 @@ export function App() {
 
   const filteredCatalog = useMemo(() => {
     if (!showCodex) return [] as any[];
-    return catalog.filter((item: any) => {
+    const result = catalog.filter((item: any) => {
       if (catalogFocusItemId) return item.id === catalogFocusItemId;
       if (catalogFilter.type !== "全部" && item.type !== catalogFilter.type) return false;
       if (catalogFilter.quality !== "全部" && item.quality !== catalogFilter.quality) return false;
@@ -796,7 +804,32 @@ export function App() {
       if (item.price < catalogFilter.min || item.price > catalogFilter.max) return false;
       return true;
     });
-  }, [showCodex, catalog, catalogFocusItemId, catalogFilter.type, catalogFilter.quality, catalogFilter.shape, catalogFilter.min, catalogFilter.max]);
+    const qualityIndex = new Map(QUALITIES.map((q, idx) => [q, idx]));
+    const directionFactor = catalogSort.direction === "asc" ? 1 : -1;
+    return [...result].sort((a: any, b: any) => {
+      let primary = 0;
+      if (catalogSort.key === "type") {
+        primary = String(a.type).localeCompare(String(b.type), "zh-Hans-CN");
+      } else if (catalogSort.key === "quality") {
+        primary = (qualityIndex.get(a.quality) ?? 999) - (qualityIndex.get(b.quality) ?? 999);
+      } else if (catalogSort.key === "size") {
+        primary = (a.size || 0) - (b.size || 0);
+      } else if (catalogSort.key === "price") {
+        primary = (a.price || 0) - (b.price || 0);
+      }
+      if (primary !== 0) return primary * directionFactor;
+
+      const typeCompare = String(a.type).localeCompare(String(b.type), "zh-Hans-CN");
+      if (typeCompare !== 0) return typeCompare;
+      const qualityCompare = (qualityIndex.get(a.quality) ?? 999) - (qualityIndex.get(b.quality) ?? 999);
+      if (qualityCompare !== 0) return qualityCompare;
+      const sizeCompare = (a.size || 0) - (b.size || 0);
+      if (sizeCompare !== 0) return sizeCompare;
+      const priceCompare = (a.price || 0) - (b.price || 0);
+      if (priceCompare !== 0) return priceCompare;
+      return String(a.name).localeCompare(String(b.name), "zh-Hans-CN");
+    });
+  }, [showCodex, catalog, catalogFocusItemId, catalogFilter.type, catalogFilter.quality, catalogFilter.shape, catalogFilter.min, catalogFilter.max, catalogSort]);
 
   const revealedPlacedIds = useMemo(() => {
     if (!settlement || !viewer) return new Set<string>();
@@ -1013,7 +1046,7 @@ export function App() {
   function confirmUseTool() {
     if (!selectedTool || !isActionPhase || isSubmitted || !!usedToolId) return;
     if (isBankrupt) {
-      setUiDialog({ title: "无法占卜", message: "你已破产，无法继续占卜。请等待本局结束。" });
+      setUiDialog({ title: "无法推演", message: "你已破产，无法继续推演。请等待本局结束。" });
       return;
     }
     if ((me?.spiritStone ?? 0) < (selectedTool?.cost ?? 0)) {
@@ -1055,6 +1088,23 @@ export function App() {
   function getSettlementWinnerName() {
     if (!settlement?.winnerId) return "流拍";
     return room.players.find((p: any) => p.id === settlement.winnerId)?.name || "未知修士";
+  }
+
+  function resetCatalogSort() {
+    setCatalogSort({ key: "type", direction: "asc" });
+  }
+
+  function toggleCatalogSort(key: "type" | "quality" | "size" | "price") {
+    setCatalogSort((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "asc" }
+    );
+  }
+
+  function renderSortMark(key: "type" | "quality" | "size" | "price") {
+    if (catalogSort.key !== key) return "↕";
+    return catalogSort.direction === "asc" ? "↑" : "↓";
   }
 
   function renderSettlementActionButtons() {
@@ -1436,9 +1486,9 @@ export function App() {
 
       {gameMain && (
         <>
-        <main className="mx-auto flex h-[calc(100dvh-84px)] min-h-0 max-w-[1800px] flex-col gap-3 overflow-hidden p-3">
-          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto xl:overflow-hidden grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-            <section className="order-2 min-h-[28vh] overflow-y-auto rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl xl:order-1 xl:min-h-0">
+        <main className="mx-auto flex min-h-[calc(100dvh-84px)] max-w-[1800px] flex-col gap-3 overflow-visible p-3 xl:h-[calc(100dvh-84px)] xl:min-h-0 xl:overflow-hidden">
+          <div className="grid gap-3 overflow-visible grid-cols-1 xl:min-h-0 xl:flex-1 xl:overflow-hidden xl:grid-cols-[320px_minmax(0,1fr)_320px]">
+            <section className="order-2 rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl overflow-visible xl:order-1 xl:min-h-0 xl:overflow-y-auto">
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-amber-100">修士榜</p>
                 <p className="text-xs text-zinc-500">按灵石排序</p>
@@ -1494,20 +1544,20 @@ export function App() {
               </div>
             </section>
 
-            <section className="order-1 flex min-h-[52vh] flex-col overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl xl:order-2 xl:min-h-0">
+            <section className="order-1 flex flex-col overflow-visible rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl xl:order-2 xl:min-h-0 xl:overflow-hidden">
               <div className="mb-3 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm text-zinc-200">
                 {settlement ? (
                   <>
                     <div className="grid items-center gap-2 md:grid-cols-[1fr_auto_1fr]">
-                      <div className="flex items-center justify-center gap-x-4 gap-y-1 text-center text-sm text-zinc-200 md:justify-start md:text-left">
+                      <div className="order-1 flex items-center justify-center gap-x-4 gap-y-1 text-center text-sm text-zinc-200 md:order-1 md:justify-start md:text-left">
                         <span className="text-amber-100">第 {game.currentRound}/{game.totalRounds} 回合 · 结算 · 竞拍成功者：{getSettlementWinnerName()}</span>
                       </div>
-                      <div className="flex justify-center">
+                      <div className="order-3 flex justify-center md:order-2">
                         <div className="relative inline-flex max-w-full items-center justify-center rounded-t-2xl border border-b-0 border-white/15 bg-slate-950/55 px-4 py-1.5 text-center text-sm text-amber-100 before:absolute before:-left-4 before:bottom-[-1px] before:h-4 before:w-4 before:border-b before:border-l before:border-white/15 before:content-[''] after:absolute after:-right-4 after:bottom-[-1px] after:h-4 after:w-4 after:border-b after:border-r after:border-white/15 after:content-['']">
                           <div className="overflow-x-auto whitespace-nowrap px-1">【{currentRound.realm}修士】的储物袋（{bagSummaryText}）</div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center justify-center gap-2 text-center text-xs text-zinc-200 md:justify-end md:text-right">
+                      <div className="order-2 flex flex-wrap items-center justify-center gap-2 text-center text-xs text-zinc-200 md:order-3 md:justify-end md:text-right">
                         <span>竞拍价：{settlement.winningBid}</span>
                         <span className={settlementRunningProfit >= 0 ? "text-emerald-300" : "text-rose-300"}>盈亏：{settlementRunningProfit}</span>
                       </div>
@@ -1515,23 +1565,23 @@ export function App() {
                   </>
                 ) : (
                     <div className="grid items-center gap-2 md:grid-cols-[1fr_auto_1fr]">
-                      <div className="flex items-center justify-center gap-x-4 gap-y-1 text-center text-sm text-zinc-200 md:justify-start md:text-left">
+                      <div className="order-1 flex items-center justify-center gap-x-4 gap-y-1 text-center text-sm text-zinc-200 md:order-1 md:justify-start md:text-left">
                         <span className="text-amber-100">第 {game.currentRound}/{game.totalRounds} 回合 · 第 {currentBidRound} 轮</span>
                       </div>
-                      <div className="flex justify-center">
+                      <div className="order-3 flex justify-center md:order-2">
                         <div className="relative inline-flex max-w-full items-center justify-center rounded-t-2xl border border-b-0 border-white/15 bg-slate-950/55 px-4 py-1.5 text-center text-sm text-amber-100 before:absolute before:-left-4 before:bottom-[-1px] before:h-4 before:w-4 before:border-b before:border-l before:border-white/15 before:content-[''] after:absolute after:-right-4 after:bottom-[-1px] after:h-4 after:w-4 after:border-b after:border-r after:border-white/15 after:content-['']">
                           <div className="overflow-x-auto whitespace-nowrap px-1">【{currentRound.realm}修士】的储物袋（{bagSummaryText}）</div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-center text-center md:justify-end md:text-right">
+                      <div className="order-2 flex items-center justify-center text-center md:order-3 md:justify-end md:text-right">
                         <span className={cn("font-semibold", actionCountdown <= 10 ? "text-rose-300" : "text-amber-100")}>第 {currentBidRound} 轮竞拍倒计时：{actionCountdown}s</span>
                       </div>
                     </div>
                 )}
               </div>
 
-              <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/10 bg-[#040812]/90 p-2 md:p-3">
-                <div className="mx-auto h-full w-full max-w-[1280px] overflow-y-auto overflow-x-hidden rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] p-2">
+              <div className="mt-3 rounded-3xl border border-white/10 bg-[#040812]/90 p-2 md:p-3 xl:flex-1 xl:min-h-0 xl:overflow-hidden">
+                <div className="mx-auto w-full max-w-[1280px] overflow-visible rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] p-2 xl:h-full xl:overflow-y-auto xl:overflow-x-hidden">
                   <div className="relative mx-auto w-full max-w-[1180px]" style={{ aspectRatio: `${GRID_W} / ${GRID_H}` }}>
                     <div className="absolute inset-0 grid grid-cols-10 gap-1">
                       {Array.from({ length: GRID_W * GRID_H }).map((_, index) => (
@@ -1653,13 +1703,13 @@ export function App() {
 
                     <button className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 text-[11px] text-fuchsia-100" onClick={() => { setCatalogFocusItemId(null); setShowCodex(true); }}>图鉴</button>
 
-                    <button
-                      ref={toolAnchorRef}
-                      className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/10 text-center text-[11px] text-cyan-100 disabled:opacity-40"
-                      disabled={!isActionPhase || isSubmitted || !!usedToolId || isBankrupt}
-                      onClick={() => setShowToolPicker(true)}
-                    >
-                      占卜
+                      <button
+                        ref={toolAnchorRef}
+                        className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/10 text-center text-[11px] text-cyan-100 disabled:opacity-40"
+                        disabled={!isActionPhase || isSubmitted || !!usedToolId || isBankrupt || currentBidRound >= 6}
+                        onClick={() => setShowToolPicker(true)}
+                      >
+                      推演
                       {usedToolId && <span className="absolute right-1 top-1 text-sm">✓</span>}
                     </button>
                   </div>
@@ -1700,8 +1750,8 @@ export function App() {
               </section>
             </section>
 
-            <section className="order-3 min-h-[52vh] overflow-hidden rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl xl:min-h-0">
-              <div className="grid h-full min-h-0 gap-3 grid-cols-2 auto-rows-fr xl:grid-cols-1 xl:grid-rows-4">
+            <section className="order-3 min-h-0 overflow-visible rounded-3xl border border-white/10 bg-black/30 p-3 backdrop-blur-xl xl:min-h-0 xl:overflow-hidden">
+              <div className="grid grid-cols-1 gap-3 xl:h-full xl:min-h-0 xl:grid-cols-1 xl:grid-rows-4">
                 <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 p-3 text-xs xl:flex xl:flex-col">
                   <p className="mb-2 text-amber-100">系统提示</p>
                   <div className="h-full min-h-0 space-y-2 overflow-y-auto pr-1 pb-3">
@@ -1715,7 +1765,7 @@ export function App() {
                   </div>
                 </div>
                 <div className="min-h-0 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 p-3 text-xs xl:flex xl:flex-col">
-                  <p className="mb-2 text-fuchsia-100">占卜提示</p>
+                  <p className="mb-2 text-fuchsia-100">推演提示</p>
                   <div className="h-full min-h-0 space-y-2 overflow-y-auto pr-1 pb-3">
                     {(currentRound.toolHints || []).map((h: string, i: number) => <p key={`t-${i}`} className="rounded-lg bg-black/20 px-2 py-1">{h}</p>)}
                   </div>
@@ -1815,55 +1865,94 @@ export function App() {
       {showCodex && (
         <div className="fixed inset-0 z-40 bg-black/70 p-4">
           <div className="mx-auto max-h-[92vh] max-w-[1100px] overflow-y-auto rounded-3xl border border-white/10 bg-[#0b1020] p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between"><p className="text-lg text-fuchsia-100">万物图鉴</p><button className="rounded-xl border border-white/10 px-3 py-1" onClick={() => { setShowCodex(false); setCatalogFocusItemId(null); }}>关闭</button></div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-lg text-fuchsia-100">万物图鉴</p>
+              <div className="flex items-center gap-2">
+                <button className={cn("rounded-xl border px-3 py-1 text-sm", codexViewMode === "list" ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-white/10 text-zinc-300")} onClick={() => { resetCatalogSort(); setCodexViewMode("list"); }}>列表</button>
+                <button className={cn("rounded-xl border px-3 py-1 text-sm", codexViewMode === "card" ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-white/10 text-zinc-300")} onClick={() => setCodexViewMode("card")}>卡片</button>
+                <button className="rounded-xl border border-white/10 px-3 py-1" onClick={() => { setShowCodex(false); setCatalogFocusItemId(null); }}>关闭</button>
+              </div>
+            </div>
             <div className="grid gap-2 md:grid-cols-5">
               <select value={catalogFilter.type} onChange={(e) => setCatalogFilter((f) => ({ ...f, type: e.target.value }))} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2"><option value="全部">全部类型</option>{TYPES.map((t: string) => <option key={t} value={t}>{t}</option>)}</select>
-              <select value={catalogFilter.quality} onChange={(e) => setCatalogFilter((f) => ({ ...f, quality: e.target.value }))} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2"><option value="全部">全部品质</option>{QUALITIES.map((q: string) => <option key={q} value={q}>{q}</option>)}</select>
+              <select value={catalogFilter.quality} onChange={(e) => setCatalogFilter((f) => ({ ...f, quality: e.target.value }))} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2"><option value="全部">全部品级</option>{QUALITIES.map((q: string) => <option key={q} value={q}>{q}</option>)}</select>
               <button ref={shapeAnchorRef} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-left text-zinc-300" onClick={() => setShowShapePicker(true)}>
                 {catalogFilter.shape === "全部" ? "选择形状" : `形状：${catalogFilter.shape}`}
               </button>
               <input type="number" className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={catalogFilter.min} onChange={(e) => setCatalogFilter((f) => ({ ...f, min: Number(e.target.value) || 0 }))} placeholder="最低价" />
               <input type="number" className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={catalogFilter.max} onChange={(e) => setCatalogFilter((f) => ({ ...f, max: Number(e.target.value) || 999999 }))} placeholder="最高价" />
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredCatalog.slice(0, codexVisibleCount).map((it: any) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => setCatalogDetailItem(it)}
-                  className={cn("rounded-2xl border p-3 text-left transition hover:brightness-110", `${QUALITY_COLOR[it.quality] || "border-white/10 bg-slate-950/50"} bg-slate-950/50/90`)}
-                >
-                  <div className="flex items-start justify-between gap-2"><p className="text-zinc-50">{it.quality} · {it.name}</p></div>
-                  <p className="mt-1 text-xs text-zinc-100/80">{it.type} | {it.shape} | {it.price} 灵石</p>
-                  <p className="mt-2 line-clamp-3 text-xs text-zinc-100/70">{it.desc}</p>
-                </button>
-              ))}
-            </div>
-            {filteredCatalog.length > codexVisibleCount && (
-              <div className="mt-4 flex justify-center">
-                <button className="rounded-xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-zinc-300" onClick={() => setCodexVisibleCount((count) => count + 60)}>
-                  加载更多（剩余 {filteredCatalog.length - codexVisibleCount}）
-                </button>
+
+            {codexViewMode === "list" ? (
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/35 pb-1">
+                <div className="min-w-[760px] text-sm">
+                  <div className="grid grid-cols-[120px_180px_72px_90px_70px_120px] bg-black/30 text-fuchsia-100">
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("type")}>
+                      类型 {renderSortMark("type")}
+                    </button>
+                    <div className="px-3 py-2 whitespace-nowrap">名称</div>
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("quality")}>
+                      品级 {renderSortMark("quality")}
+                    </button>
+                    <div className="px-3 py-2 whitespace-nowrap">形状</div>
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("size")}>
+                      格数 {renderSortMark("size")}
+                    </button>
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("price")}>
+                      价格 {renderSortMark("price")}
+                    </button>
+                  </div>
+                  {filteredCatalog.map((it: any) => (
+                    <HoverTip
+                      key={it.id}
+                      side="top"
+                      content={
+                        <>
+                          <p className="text-amber-100">{it.name}</p>
+                          <p className="mt-1 text-zinc-300">类型：{it.type}｜品级：{it.quality}</p>
+                          <p className="mt-1 text-zinc-300">形状：{it.shape}｜尺寸：{it.width} × {it.height}（{it.size}格）</p>
+                          <p className="mt-1 text-amber-200">价格：{it.price} 灵石</p>
+                          <p className="mt-2 text-zinc-400">{it.desc}</p>
+                        </>
+                      }
+                      label={
+                        <div className="grid grid-cols-[120px_180px_72px_90px_70px_120px] border-t border-white/10 text-zinc-300 transition hover:bg-white/5">
+                          <div className="px-3 py-2 whitespace-nowrap">{it.type}</div>
+                          <div className="px-3 py-2 whitespace-nowrap text-zinc-100">{it.name}</div>
+                          <div className="px-3 py-2 whitespace-nowrap">{it.quality}</div>
+                          <div className="px-3 py-2 whitespace-nowrap">{it.shape}</div>
+                          <div className="px-3 py-2 whitespace-nowrap">{it.size}</div>
+                          <div className="px-3 py-2 whitespace-nowrap text-amber-100">{it.price}</div>
+                        </div>
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                {filteredCatalog.map((it: any) => (
+                  <HoverTip
+                    key={it.id}
+                    side="top"
+                    content={
+                      <>
+                        <p className="text-amber-100">{it.name}</p>
+                        <p className="mt-1 text-zinc-300">类型：{it.type}｜品级：{it.quality}</p>
+                        <p className="mt-1 text-zinc-300">形状：{it.shape}｜尺寸：{it.width} × {it.height}（{it.size}格）</p>
+                        <p className="mt-1 text-amber-200">价格：{it.price} 灵石</p>
+                        <p className="mt-2 text-zinc-400">{it.desc}</p>
+                      </>
+                    }
+                    label={<div className="rounded-xl border border-white/10 bg-slate-950/50 p-2.5 text-left"><div className="flex items-start justify-between gap-2"><p className="text-sm text-zinc-100">{it.name}</p><span className="text-xs text-zinc-400">{it.quality}</span></div><p className="mt-1 text-[11px] text-zinc-400">{it.type}｜{it.shape}｜{it.size}格</p><p className="mt-1 text-xs text-amber-100">{it.price} 灵石</p></div>}
+                  />
+                ))}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {catalogDetailItem && (
-        <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/60 p-4">
-          <div className={cn("w-full max-w-md rounded-3xl border p-5 shadow-2xl", `${QUALITY_COLOR[catalogDetailItem.quality] || "border-white/10 bg-[#0b1020]"} bg-[#0b1020]`)}>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-lg text-zinc-50">{catalogDetailItem.quality} · {catalogDetailItem.name}</p>
-              <button className="rounded-xl border border-white/10 px-3 py-1 text-sm text-zinc-100" onClick={() => setCatalogDetailItem(null)}>关闭</button>
-            </div>
-            <p className="mt-3 text-sm text-zinc-100/90">类型：{catalogDetailItem.type}</p>
-            <p className="mt-1 text-sm text-zinc-100/90">形状：{catalogDetailItem.shape}｜尺寸：{catalogDetailItem.width} × {catalogDetailItem.height}（{catalogDetailItem.size}格）</p>
-            <p className="mt-1 text-sm text-amber-100">估价：{catalogDetailItem.price} 灵石</p>
-            <p className="mt-3 text-sm text-zinc-100/80">{catalogDetailItem.desc}</p>
-          </div>
-        </div>
-      )}
 
       <KeypadPopover open={showKeypad} anchorRef={bidAnchorRef} value={bidInput} onClose={() => setShowKeypad(false)} onAppend={appendBidDigit} onDelete={deleteBidDigit} onClear={clearBidInput} />
       <ShapePopover
@@ -1886,7 +1975,7 @@ export function App() {
       {showToolConfirm && selectedTool && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0b1020] p-5 shadow-2xl">
-            <p className="text-lg text-cyan-100">确认施展占卜</p>
+            <p className="text-lg text-cyan-100">确认施展推演</p>
             <p className="mt-3 text-zinc-200">是否使用【{selectedTool.name}】？</p>
             <p className="mt-1 text-sm text-zinc-400">{selectedTool.desc}</p>
             <p className="mt-1 text-sm text-amber-200">消耗：{selectedTool.cost} 灵石</p>
@@ -1963,7 +2052,7 @@ export function App() {
                     <th className="px-3 py-2 text-left">胜场</th>
                     <th className="px-3 py-2 text-left">总盈亏</th>
                     <th className="px-3 py-2 text-left">总出价</th>
-                    <th className="px-3 py-2 text-left">占卜/花费</th>
+                    <th className="px-3 py-2 text-left">推演/花费</th>
                     <th className="px-3 py-2 text-left">称号</th>
                   </tr>
                 </thead>
@@ -2068,13 +2157,13 @@ export function App() {
                     {(round.logs || []).map((log: any) => (
                       <div key={`${round.roundNo}-${log.roundNo}`} className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/40">
                         <div className="border-b border-white/10 px-3 py-2 text-sm text-zinc-200">第 {log.roundNo} 轮 · 判定倍率 {log.multiplier}</div>
-                        <div className="overflow-x-auto">
-                        <table className="min-w-[560px] text-xs text-zinc-300">
+                        <div className="w-full overflow-x-auto">
+                        <table className="w-full min-w-[560px] text-xs text-zinc-300">
                           <thead className="bg-black/20">
                             <tr>
                               <th className="px-3 py-2 text-left">玩家</th>
                               <th className="px-3 py-2 text-left">出价</th>
-                              <th className="px-3 py-2 text-left">占卜</th>
+                              <th className="px-3 py-2 text-left">推演</th>
                               <th className="px-3 py-2 text-left">结果</th>
                             </tr>
                           </thead>

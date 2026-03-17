@@ -1199,8 +1199,8 @@ const RESULT_TITLE_META = {
   富: { name: "首富", desc: "游戏过程中灵石曾达到全场最高金额的玩家" },
   豪: { name: "豪掷", desc: "所有轮次中单次出价最高的玩家" },
   阔: { name: "阔绰", desc: "所有回合中竞价成功所花费灵石总和最多的玩家" },
-  宝: { name: "宝卦", desc: "使用道具轮次数最多的玩家" },
-  省: { name: "省卦", desc: "使用道具轮次数最少的玩家" },
+  宝: { name: "宝卦", desc: "使用推演轮次数最多的玩家" },
+  省: { name: "省卦", desc: "使用推演轮次数最少的玩家" },
   龙: { name: "龙夺", desc: "竞价成功回合数最多的玩家" },
   凤: { name: "凤随", desc: "竞价成功回合中作为出价第二名次数最多的玩家" },
   神: { name: "神算", desc: "竞价成功且累计盈利金额最多的玩家" },
@@ -2161,8 +2161,13 @@ io.on("connection", (socket) => {
     if (!round.auction.activePlayerIds.includes(player.id)) return;
     if (round.auction.submittedIds.includes(player.id)) return;
     if (round.auction.usedTools[player.id]) return;
+    if (round.auction.bidRound >= 6) {
+      round.toolHints[player.id].push("推演提示：第六轮及之后不可继续推演。");
+      emitState(io, room);
+      return;
+    }
     if (isBankrupt(player)) {
-      round.toolHints[player.id].push("占卜提示：你已破产，无法继续占卜。请等待本局结束。");
+      round.toolHints[player.id].push("推演提示：你已破产，无法继续推演。请等待本局结束。");
       emitState(io, room);
       return;
     }
@@ -2171,18 +2176,18 @@ io.on("connection", (socket) => {
     if (!tool) return;
     const history = round.auction.usedToolHistoryByPlayer[player.id] || [];
     if (history.includes(toolId)) {
-      round.toolHints[player.id].push(`占卜提示：【${tool.name}】本回合已经占卜过，不可再次施展。`);
+      round.toolHints[player.id].push(`推演提示：【${tool.name}】本回合已经推演过，不可再次施展。`);
       emitState(io, room);
       return;
     }
     if (player.spiritStone < tool.cost) {
-      round.toolHints[player.id].push(`占卜提示：灵石不足，无法施展【${tool.name}】（需要${tool.cost}灵石）`);
+      round.toolHints[player.id].push(`推演提示：灵石不足，无法施展【${tool.name}】（需要${tool.cost}灵石）`);
       emitState(io, room);
       return;
     }
 
     const rng = createRng(hashSeed(`${room.game.seedId || room.game.id}_${round.id}_${player.id}_${toolId}_${round.auction.bidRound}`));
-    const text = applyHint(tool.effect, round.intelByPlayer[player.id], round, rng, `占卜【${tool.name}】`);
+    const text = applyHint(tool.effect, round.intelByPlayer[player.id], round, rng, `推演【${tool.name}】`);
     round.toolHints[player.id].push(`${text}（消耗${tool.cost}灵石）`);
     round.intelByPlayer[player.id].texts.push(text);
     round.auction.usedTools[player.id] = tool.id;
