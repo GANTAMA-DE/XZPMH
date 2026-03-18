@@ -10,9 +10,9 @@ const PORT = Number(process.env.PORT || 3001);
 const GRID_W = 10;
 const GRID_H = 30;
 const REVEAL_STEP_MS = 320;
-const ACTION_PHASE_MS = 90000;
+const ACTION_PHASE_MS = 60000;
 const NEXT_ROUND_PREPARE_MS = 5000;
-const FORCE_NEXT_MS = 180000;
+const FORCE_NEXT_MS = 90000;
 
 const ROLES = [
   { id: "r1", name: "刘一", avatar: "刘", skill: "按轮次揭示黄→圣级物品的品质。" },
@@ -198,6 +198,7 @@ const REALM_RANGE = {
 };
 
 const DEFAULT_SETTINGS = {
+  roomName: "",
   maxPlayers: 6,
   password: "",
   totalRounds: 10,
@@ -208,6 +209,8 @@ const DEFAULT_SETTINGS = {
   profitShareRate: 0.35,
   lossRebateRate: 0.25,
   allowDuplicateRoles: true,
+  showOtherSpiritStone: true,
+  revealBidDisplay: "amount",
   realmProbability: {
     炼气: 5,
     筑基: 10,
@@ -232,6 +235,11 @@ const SHAPES = [
 
 const rooms = new Map();
 const playerTokenMap = new Map();
+const STATIC_META = {
+  roles: ROLES,
+  tools: TOOLS,
+  catalog: ITEM_CATALOG,
+};
 
 function hashSeed(input) {
   let h = 1779033703 ^ input.length;
@@ -291,6 +299,7 @@ function createPlayer(name, token) {
     ready: false,
     connected: true,
     managed: false,
+    managedReason: null,
     spiritStone: DEFAULT_SETTINGS.initialSpiritStone,
     stats: {
       wins: 0,
@@ -372,7 +381,6 @@ function createEmptyIntel() {
     knownItemIds: [],
     knownContours: [],
     knownQualityCells: [],
-    knownQualityItemIds: [],
     knownTypeItemIds: [],
     texts: [],
   };
@@ -421,7 +429,7 @@ function qualityCellsForItem(item) {
   const cells = [];
   for (let dy = 0; dy < item.height; dy += 1) {
     for (let dx = 0; dx < item.width; dx += 1) {
-      cells.push({ x: item.x + dx, y: item.y + dy, quality: item.quality, itemPlacedId: item.placedId });
+      cells.push({ x: item.x + dx, y: item.y + dy, itemPlacedId: item.placedId });
     }
   }
   return cells;
@@ -431,10 +439,7 @@ function revealItemQuality(intel, item, rng = Math.random) {
   const cells = qualityCellsForItem(item);
   if (!cells.length) return;
   const pick = cells[Math.floor(rng() * cells.length)] || cells[0];
-  if (!intel.knownQualityCells.some((c) => c.x === pick.x && c.y === pick.y && c.itemPlacedId === pick.itemPlacedId)) {
-    intel.knownQualityCells.push(pick);
-  }
-  uniquePush(intel.knownQualityItemIds, item.placedId);
+  intel.knownQualityCells.push(pick);
 }
 
 function revealItemContour(intel, item) {
@@ -469,7 +474,9 @@ function describeScope(scope) {
 }
 
 function getUnknownQualityItems(intel, items) {
-  const knownIds = new Set([...(intel.knownQualityItemIds || []), ...intel.knownItemIds]);
+  const knownIds = new Set([...(intel.knownItemIds || [])]);
+  const qualityIds = new Set((intel.knownQualityCells || []).map((cell) => cell.itemPlacedId));
+  qualityIds.forEach((id) => knownIds.add(id));
   return items.filter((item) => !knownIds.has(item.placedId));
 }
 
@@ -599,22 +606,45 @@ function applyRoleSkill(room, round, player, bidRound, gameId) {
   if (roleName === "王五") {
     const types = typeRounds[bidRound - 1] || [];
     const shown = [];
+    const emptyTypes = [];
     types.forEach((type) => {
-      const top = pickHighestQualityRandom(filterByTypes(items, [type]), rng);
+      const typedItems = filterByTypes(items, [type]);
+      const top = pickHighestQualityRandom(typedItems, rng);
       if (top) {
         revealItemQuality(intel, top, rng);
+        revealItemType(intel, top);
         shown.push(`${type}最高品质之一（${top.quality}）`);
+      } else {
+        emptyTypes.push(type);
       }
     });
-    push(`技能提示：王五揭示${shown.join("；") || "对应类型暂无物品"}的品质。`);
+    const parts = [];
+    if (shown.length) parts.push(`揭示${shown.join("；")}的品质`);
+    if (emptyTypes.length) parts.push(`${emptyTypes.join("、")}暂无物品`);
+    push(`技能提示：王五${parts.join("；") || "本轮对应类型暂无物品"}。`);
     return;
   }
 
   if (roleName === "赵六") {
     const types = typeRounds[bidRound - 1] || [];
-    const list = filterByTypes(items, types);
-    list.forEach((item) => revealItemContour(intel, item));
-    push(`技能提示：赵六显露${types.join("、")}物品的轮廓（共${list.length}件）。`);
+    const shownParts = [];
+    const emptyTypes = [];
+    types.forEach((type) => {
+      const typedItems = filterByTypes(items, [type]);
+      if (!typedItems.length) {
+        emptyTypes.push(type);
+        return;
+      }
+      typedItems.forEach((item) => {
+        revealItemContour(intel, item);
+        revealItemType(intel, item);
+      });
+      shownParts.push(`${type}（共${typedItems.length}件）`);
+    });
+    const parts = [];
+    if (shownParts.length) parts.push(`显露${shownParts.join("；")}物品的轮廓`);
+    if (emptyTypes.length) parts.push(`${emptyTypes.join("、")}暂无物品`);
+    push(`技能提示：赵六${parts.join("；") || "本轮对应类型暂无物品"}。`);
     return;
   }
 
@@ -744,6 +774,14 @@ function computeMetric(items, metric) {
   return "0";
 }
 
+function getPlayerRoundStatus(player) {
+  if (!player) return "放弃";
+  if (player.spiritStone < 0) return "破产";
+  if (!player.connected) return "离线";
+  if (player.managed) return player.managedReason === "托管" ? "托管" : "离线";
+  return "放弃";
+}
+
 function applyHint(effect, intel, round, rng, source) {
   const items = round.placedItems;
   const targetItems = selectItemsByScope(items, effect.scope, rng).filter(Boolean);
@@ -790,6 +828,15 @@ function applySystemHintIfNeeded(room, round, gameId) {
     const text = applyHint(effect, round.intelByPlayer[p.id], round, createRng(seed), "系统");
     round.intelByPlayer[p.id].texts.push(text);
   });
+}
+
+function toClientPlacedItem(item) {
+  return {
+    id: item.id,
+    placedId: item.placedId,
+    x: item.x,
+    y: item.y,
+  };
 }
 
 function createRound(room, gameId, roundNo) {
@@ -882,6 +929,7 @@ function createRound(room, gameId, roundNo) {
       usedTools: {},
       statusByPlayer: {},
       usedToolHistoryByPlayer: {},
+      forfeitedThisRound: {},
       logs: [],
       winnerId: null,
     },
@@ -907,27 +955,31 @@ function autoSubmitManaged(room, round) {
     if (!player) return;
     if (!round.auction.submittedIds.includes(pid) && (!player.connected || player.managed || isBankrupt(player))) {
       round.auction.submittedIds.push(pid);
-      round.auction.bids[pid] = null;
-      if (isBankrupt(player)) {
-        round.auction.statusByPlayer = {
-          ...(round.auction.statusByPlayer || {}),
-          [pid]: "破产",
-        };
-      } else if (!player.connected || player.managed) {
-        round.auction.statusByPlayer = {
-          ...(round.auction.statusByPlayer || {}),
-          [pid]: "离线",
-        };
-      }
+      round.auction.bids[pid] = 0;
+      round.auction.forfeitedThisRound = {
+        ...(round.auction.forfeitedThisRound || {}),
+        [pid]: true,
+      };
+      round.auction.statusByPlayer = {
+        ...(round.auction.statusByPlayer || {}),
+        [pid]: getPlayerRoundStatus(player),
+      };
     }
   });
 }
 
 function allActivePlayersCannotAct(room, round) {
-  if (!round?.auction?.activePlayerIds?.length) return false;
+  if (!round?.auction?.activePlayerIds?.length) return true;
   return round.auction.activePlayerIds.every((pid) => {
     const player = room.players.find((p) => p.id === pid);
-    return !player || !player.connected || player.managed || isBankrupt(player);
+    return (
+      !player ||
+      !player.connected ||
+      player.managed ||
+      isBankrupt(player) ||
+      Boolean(round.auction?.forfeitedThisRound?.[pid]) ||
+      ["放弃", "超时", "破产", "离线", "托管"].includes(round.auction?.statusByPlayer?.[pid] || "")
+    );
   });
 }
 
@@ -937,9 +989,7 @@ function createSettlementViewers(room, revealOrder) {
   room.players.forEach((player) => {
     const offlineReady = !player.connected || player.managed;
     viewers[player.id] = {
-      mode: "delay",
-      revealIndex: offlineReady ? revealOrder.length : 0,
-      nextRevealAt: offlineReady ? null : now + REVEAL_STEP_MS,
+      mode: offlineReady ? "instant" : "delay",
       completed: offlineReady,
       readyForNextRound: offlineReady,
       chosenAt: now,
@@ -1036,9 +1086,13 @@ function processRound(room) {
   if (round.auction.submittedIds.length < round.auction.activePlayerIds.length) return;
 
   const active = [...round.auction.activePlayerIds];
+  if (active.length === 0) {
+    settleRound(room, round, null, 0);
+    return;
+  }
   const sorted = active
-    .map((playerId) => ({ playerId, bid: round.auction.bids[playerId] ?? null }))
-    .sort((a, b) => (b.bid ?? -1) - (a.bid ?? -1));
+    .map((playerId) => ({ playerId, bid: Number(round.auction.bids[playerId] ?? 0) }))
+    .sort((a, b) => b.bid - a.bid);
 
   const log = {
     roundNo: round.auction.bidRound,
@@ -1058,15 +1112,15 @@ function processRound(room) {
   let success = false;
   let winnerId = null;
 
-  if (active.length === 1 && topBid >= 0) {
+  if (active.length === 1 && topBid > 0) {
     success = true;
     winnerId = topPlayer;
   } else if (round.auction.bidRound <= 4) {
     const ratio = room.settings.multipliers[round.auction.bidRound - 1] || 1;
-    success = topBid >= 0 && topBid > secondBid * ratio;
+    success = topBid > 0 && topBid > secondBid * ratio;
     winnerId = success ? topPlayer : null;
   } else {
-    success = topBid >= 0 && topBid > secondBid;
+    success = topBid > 0 && topBid > secondBid;
     winnerId = success ? topPlayer : null;
   }
 
@@ -1080,12 +1134,17 @@ function processRound(room) {
   }
 
   if (round.auction.bidRound < 5) {
+    const nextActivePlayerIds = round.auction.activePlayerIds.filter((pid) => {
+      const player = room.players.find((p) => p.id === pid);
+      return player && !isBankrupt(player) && !round.auction.forfeitedThisRound?.[pid];
+    });
+    if (nextActivePlayerIds.length === 0) {
+      settleRound(room, round, null, 0);
+      return;
+    }
     round.auction.bidRound += 1;
     round.auction.deadlineAt = Date.now() + ACTION_PHASE_MS;
-    round.auction.activePlayerIds = round.auction.activePlayerIds.filter((pid) => {
-      const player = room.players.find((p) => p.id === pid);
-      return player && !isBankrupt(player);
-    });
+    round.auction.activePlayerIds = nextActivePlayerIds;
     round.auction.submittedIds = [];
     round.auction.bids = {};
     round.auction.usedTools = {};
@@ -1095,7 +1154,7 @@ function processRound(room) {
     return;
   }
 
-  const tieIds = sorted.filter((entry) => entry.bid === topBid && topBid >= 0).map((entry) => entry.playerId);
+  const tieIds = sorted.filter((entry) => entry.bid === topBid && topBid > 0).map((entry) => entry.playerId);
   if (tieIds.length >= 2) {
     round.auction.bidRound += 1;
     round.auction.deadlineAt = Date.now() + ACTION_PHASE_MS;
@@ -1114,6 +1173,7 @@ function startGame(room) {
   const gameSeedId = `seed_${Math.random().toString(36).slice(2, 10)}`;
   room.players.forEach((p) => {
     p.spiritStone = room.settings.initialSpiritStone;
+    p.managedReason = null;
     p.stats = {
       wins: 0,
       usedTools: 0,
@@ -1549,8 +1609,10 @@ function buildGameResult(room) {
           const playerState = playerStateMap[playerId];
           if (roundStartStone < 0 || playerState?.spiritStone < 0) {
             mergedStatusByPlayer[playerId] = "破产";
-          } else if (!playerState || !playerState.connected || playerState.managed) {
+          } else if (!playerState || !playerState.connected) {
             mergedStatusByPlayer[playerId] = "离线";
+          } else if (playerState.managed) {
+            mergedStatusByPlayer[playerId] = playerState.managedReason === "托管" ? "托管" : "离线";
           } else {
             mergedStatusByPlayer[playerId] = "放弃";
           }
@@ -1603,59 +1665,46 @@ function advanceToNextRound(room) {
   room.game.rounds.push(createRound(room, room.game.seedId || room.game.id, room.game.currentRound));
 }
 
-function buildClientState(room, playerId) {
-  const player = room.players.find((p) => p.id === playerId);
-  const game = room.game;
-  let currentRound = null;
-  if (game) {
-    const rawRound = game.rounds[game.currentRound - 1];
-    if (rawRound) {
-      const completedCount = rawRound.settlement
-        ? room.players.filter((p) => rawRound.settlement.viewers[p.id]?.readyForNextRound || !p.connected || p.managed).length
-        : 0;
-      currentRound = {
-        id: rawRound.id,
-        roundNo: rawRound.roundNo,
-        realm: rawRound.realm,
-        targetCells: rawRound.targetCells,
-        placedItems: rawRound.placedItems,
-        systemHints: rawRound.systemHints,
-        intel: rawRound.intelByPlayer[playerId] || createEmptyIntel(),
-        skillHints: rawRound.skillHints[playerId] || [],
-        toolHints: rawRound.toolHints[playerId] || [],
-        settlement: rawRound.settlement
-          ? {
-              winnerId: rawRound.settlement.winnerId,
-              winningBid: rawRound.settlement.winningBid,
-              totalValue: rawRound.settlement.totalValue,
-              profit: rawRound.settlement.profit,
-              entryFee: rawRound.settlement.entryFee,
-              sharing: rawRound.settlement.sharing,
-              revealOrder: rawRound.settlement.revealOrder,
-              startedAt: rawRound.settlement.startedAt,
-              readyOpenAt: rawRound.settlement.readyOpenAt,
-              allReadyCountdownAt: rawRound.settlement.allReadyCountdownAt,
-              forceNextAt: rawRound.settlement.forceNextAt,
-              viewer: rawRound.settlement.viewers[playerId] || null,
-              completedCount,
-              totalPlayers: room.players.length,
-            }
-          : null,
-        auction: rawRound.auction,
-      };
-    }
-  }
+function emitStaticMeta(socketOrIoTarget) {
+  socketOrIoTarget.emit("meta:static", STATIC_META);
+}
 
+function emitChatFull(socketOrIoTarget, room) {
+  socketOrIoTarget.emit("chat:full", room.chat);
+}
+
+function emitChatNew(io, room, message) {
+  room.players.forEach((p) => {
+    if (!p.socketId) return;
+    io.to(p.socketId).emit("chat:new", message);
+  });
+}
+
+function pushSystemMessage(io, room, text) {
+  room.messageSeq += 1;
+  const msg = {
+    id: `${room.id}_${room.messageSeq}`,
+    senderId: "system",
+    senderName: "系统",
+    text,
+    time: nowText(),
+  };
+  room.chat.push(msg);
+  if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+  if (io) emitChatNew(io, room, msg);
+  return msg;
+}
+
+function buildRoomBaseState(room) {
   return {
-    selfId: playerId,
     phase: room.phase,
     room: {
       roomId: room.id,
       ownerId: room.ownerId,
       settings: room.settings,
       roleSelections: getRoomRoleSelectionMap(room),
-      hasActiveGame: Boolean(game),
-      hasActiveUnfinishedGame: Boolean(game && game.status !== "已完成"),
+      hasActiveGame: Boolean(room.game),
+      hasActiveUnfinishedGame: Boolean(room.game && room.game.status !== "已完成"),
       players: room.players.map((p) => ({
         id: p.id,
         name: p.name,
@@ -1670,6 +1719,56 @@ function buildClientState(room, playerId) {
       })),
       latestResult: room.latestResult,
     },
+  };
+}
+
+function buildClientState(room, playerId, baseState = null) {
+  const player = room.players.find((p) => p.id === playerId);
+  const game = room.game;
+  let currentRound = null;
+  if (game) {
+    const rawRound = game.rounds[game.currentRound - 1];
+    if (rawRound) {
+      const completedCount = rawRound.settlement
+        ? room.players.filter((p) => rawRound.settlement.viewers[p.id]?.readyForNextRound || !p.connected || p.managed).length
+        : 0;
+      currentRound = {
+        id: rawRound.id,
+        roundNo: rawRound.roundNo,
+        realm: rawRound.realm,
+        targetCells: rawRound.targetCells,
+        placedItems: (rawRound.placedItems || []).map(toClientPlacedItem),
+        systemHints: rawRound.systemHints,
+        intel: rawRound.intelByPlayer[playerId] || createEmptyIntel(),
+        skillHints: rawRound.skillHints[playerId] || [],
+        toolHints: rawRound.toolHints[playerId] || [],
+        settlement: rawRound.settlement
+          ? {
+              winnerId: rawRound.settlement.winnerId,
+              winningBid: rawRound.settlement.winningBid,
+              totalValue: rawRound.settlement.totalValue,
+              profit: rawRound.settlement.profit,
+              entryFee: rawRound.settlement.entryFee,
+              sharing: rawRound.settlement.sharing,
+              revealOrder: (rawRound.settlement.revealOrder || []).map(toClientPlacedItem),
+              startedAt: rawRound.settlement.startedAt,
+              stepMs: REVEAL_STEP_MS,
+              readyOpenAt: rawRound.settlement.readyOpenAt,
+              allReadyCountdownAt: rawRound.settlement.allReadyCountdownAt,
+              forceNextAt: rawRound.settlement.forceNextAt,
+              viewer: rawRound.settlement.viewers[playerId] || null,
+              completedCount,
+              totalPlayers: room.players.length,
+            }
+          : null,
+        auction: rawRound.auction,
+      };
+    }
+  }
+
+  return {
+    ...(baseState || buildRoomBaseState(room)),
+    selfId: playerId,
     game: game
       ? {
           id: game.id,
@@ -1679,12 +1778,6 @@ function buildClientState(room, playerId) {
           currentRoundState: currentRound,
         }
       : null,
-    chat: room.chat,
-    meta: {
-      roles: ROLES,
-      tools: TOOLS,
-      catalog: ITEM_CATALOG,
-    },
     self: player
       ? {
           id: player.id,
@@ -1698,9 +1791,10 @@ function buildClientState(room, playerId) {
 }
 
 function emitState(io, room) {
+  const baseState = buildRoomBaseState(room);
   room.players.forEach((p) => {
     if (!p.socketId) return;
-    io.to(p.socketId).emit("state:update", buildClientState(room, p.id));
+    io.to(p.socketId).emit("state:update", buildClientState(room, p.id, baseState));
   });
 }
 
@@ -1729,6 +1823,7 @@ function removePlayerCompletely(room, playerId) {
 function roomSummary(room) {
   return {
     roomId: room.id,
+    roomName: room.settings.roomName || "",
     ownerName: room.players.find((p) => p.id === room.ownerId)?.name || "无",
     playerCount: room.players.filter((p) => p.connected || !p.managed).length,
     maxPlayers: room.settings.maxPlayers,
@@ -1747,6 +1842,7 @@ function handlePlayerLeave(io, socket, room, player, reason = "主动退出") {
   if (room.game) {
     player.connected = false;
     player.managed = true;
+    player.managedReason = "托管";
     player.socketId = "";
     player.ready = true;
     socket.leave(room.id);
@@ -1755,15 +1851,7 @@ function handlePlayerLeave(io, socket, room, player, reason = "主动退出") {
       assignNextOwner(room);
     }
 
-    room.messageSeq += 1;
-    room.chat.push({
-      id: `${room.id}_${room.messageSeq}`,
-      senderId: "system",
-      senderName: "系统",
-      text: `${player.name}已${reason}，当前转为离线托管${wasOwner ? `，房主已移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}` : ""}。`,
-      time: nowText(),
-    });
-    if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+    pushSystemMessage(io, room, `${player.name}已${reason}，当前转为离线托管${wasOwner ? `，房主已移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}` : ""}。`);
 
     const round = getCurrentRound(room);
     if (round?.settlement?.viewers?.[player.id]) {
@@ -1805,15 +1893,7 @@ function handlePlayerLeave(io, socket, room, player, reason = "主动退出") {
     assignNextOwner(room);
   }
 
-  room.messageSeq += 1;
-  room.chat.push({
-    id: `${room.id}_${room.messageSeq}`,
-    senderId: "system",
-    senderName: "系统",
-    text: `${player.name}已${reason}，${wasOwner ? `房主已移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}` : "其席位已释放"}。`,
-    time: nowText(),
-  });
-  if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+  pushSystemMessage(io, room, `${player.name}已${reason}，${wasOwner ? `房主已移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}` : "其席位已释放"}。`);
 
   emitState(io, room);
 }
@@ -1849,6 +1929,26 @@ setInterval(() => {
 
       if (round.auction.phase === "行动中") {
         autoSubmitManaged(room, round);
+        if (allActivePlayersCannotAct(room, round)) {
+          round.auction.activePlayerIds.forEach((pid) => {
+            if (!round.auction.submittedIds.includes(pid)) {
+              const player = room.players.find((p) => p.id === pid);
+              round.auction.submittedIds.push(pid);
+              round.auction.bids[pid] = 0;
+              round.auction.forfeitedThisRound = {
+                ...(round.auction.forfeitedThisRound || {}),
+                [pid]: true,
+              };
+              round.auction.statusByPlayer = {
+                ...(round.auction.statusByPlayer || {}),
+                [pid]: getPlayerRoundStatus(player),
+              };
+            }
+          });
+          processRound(room);
+          emitState(io, room);
+          continue;
+        }
         if (round.auction.submittedIds.length >= round.auction.activePlayerIds.length && round.auction.activePlayerIds.length > 0) {
           processRound(room);
           emitState(io, room);
@@ -1858,11 +1958,15 @@ setInterval(() => {
           round.auction.activePlayerIds.forEach((pid) => {
             if (!round.auction.submittedIds.includes(pid)) {
               round.auction.submittedIds.push(pid);
-              round.auction.bids[pid] = null;
+              round.auction.bids[pid] = 0;
+              round.auction.forfeitedThisRound = {
+                ...(round.auction.forfeitedThisRound || {}),
+                [pid]: true,
+              };
               const player = room.players.find((p) => p.id === pid);
               round.auction.statusByPlayer = {
                 ...(round.auction.statusByPlayer || {}),
-                [pid]: player && isBankrupt(player) ? "破产" : !player || !player.connected || player.managed ? "离线" : "放弃",
+                [pid]: player && isBankrupt(player) ? "破产" : !player || !player.connected ? "离线" : player.managed ? "托管" : "超时",
               };
             }
           });
@@ -1876,53 +1980,26 @@ setInterval(() => {
 
     let changed = false;
     const settlement = round.settlement;
-    const revealCount = settlement.revealOrder.length;
 
     for (const player of room.players) {
       const viewer = settlement.viewers[player.id] || {
         mode: null,
-        revealIndex: 0,
-        nextRevealAt: now + REVEAL_STEP_MS,
         completed: false,
         readyForNextRound: false,
         chosenAt: null,
+        autoReadyAt: now + FORCE_NEXT_MS,
       };
       settlement.viewers[player.id] = viewer;
 
       if (!player.connected || player.managed) {
-        if (viewer.revealIndex !== revealCount || !viewer.mode) {
-          viewer.mode = "delay";
-          viewer.revealIndex = revealCount;
-          viewer.nextRevealAt = null;
+        if (viewer.mode !== "instant" || !viewer.completed) {
+          viewer.mode = "instant";
           viewer.completed = true;
           viewer.chosenAt = viewer.chosenAt || now;
           changed = true;
         }
         if (!viewer.readyForNextRound) {
           viewer.readyForNextRound = true;
-          changed = true;
-        }
-        continue;
-      }
-
-      if (viewer.mode === "instant" && !viewer.completed) {
-        viewer.revealIndex = revealCount;
-        viewer.completed = true;
-        viewer.nextRevealAt = null;
-        changed = true;
-      }
-
-      if (viewer.mode === "delay" && !viewer.completed) {
-        if (revealCount === 0) {
-          viewer.completed = true;
-          changed = true;
-        } else if (viewer.nextRevealAt && now >= viewer.nextRevealAt) {
-          const steps = Math.max(1, Math.floor((now - viewer.nextRevealAt) / REVEAL_STEP_MS) + 1);
-          viewer.revealIndex = Math.min(revealCount, viewer.revealIndex + steps);
-          viewer.nextRevealAt = now + REVEAL_STEP_MS;
-          if (viewer.revealIndex >= revealCount) {
-            viewer.completed = true;
-          }
           changed = true;
         }
       }
@@ -1985,13 +2062,25 @@ io.on("connection", (socket) => {
       player.socketId = socket.id;
       player.connected = true;
       player.managed = false;
+      player.managedReason = null;
       socket.join(room.id);
+      emitStaticMeta(socket);
+      emitChatFull(socket, room);
       emitState(io, room);
     }
   }
 
   socket.on("room:list", (cb) => {
     cb?.({ ok: true, rooms: [...rooms.values()].map(roomSummary) });
+  });
+
+  socket.on("chat:sync", (cb) => {
+    const found = findBySocket(socket);
+    if (!found) {
+      cb?.({ ok: false, messages: [] });
+      return;
+    }
+    cb?.({ ok: true, messages: found.room.chat || [] });
   });
 
   socket.on("room:create", (payload, cb) => {
@@ -2003,11 +2092,14 @@ io.on("connection", (socket) => {
       phase: "房间准备",
       settings: {
         ...DEFAULT_SETTINGS,
+        roomName: String(payload?.roomName || "").trim().slice(0, 10),
         maxPlayers: clampMaxPlayers(payload?.maxPlayers || DEFAULT_SETTINGS.maxPlayers),
         password: payload?.password || "",
         hintRounds: normalizeHintRounds(payload?.hintRounds, DEFAULT_SETTINGS.hintRounds),
         multipliers: normalizeMultipliers(payload?.multipliers, DEFAULT_SETTINGS.multipliers),
         allowDuplicateRoles: DEFAULT_SETTINGS.allowDuplicateRoles,
+        showOtherSpiritStone: typeof payload?.showOtherSpiritStone === "boolean" ? payload.showOtherSpiritStone : DEFAULT_SETTINGS.showOtherSpiritStone,
+        revealBidDisplay: payload?.revealBidDisplay === "rank" ? "rank" : DEFAULT_SETTINGS.revealBidDisplay,
       },
       players: [],
       game: null,
@@ -2022,15 +2114,10 @@ io.on("connection", (socket) => {
     rooms.set(roomId, room);
     playerTokenMap.set(tokenValue, { roomId, playerId: player.id });
     socket.join(roomId);
-    room.messageSeq += 1;
-    room.chat.push({
-      id: `${room.id}_${room.messageSeq}`,
-      senderId: "system",
-      senderName: "系统",
-      text: `${player.name}已进入房间。`,
-      time: nowText(),
-    });
+    pushSystemMessage(io, room, `${player.name}已进入房间。`);
     cb?.({ ok: true, roomId, token: tokenValue, playerId: player.id });
+    emitStaticMeta(socket);
+    emitChatFull(socket, room);
     emitState(io, room);
   });
 
@@ -2072,16 +2159,10 @@ io.on("connection", (socket) => {
     if (!owner || !owner.connected || owner.managed) {
       assignNextOwner(room);
     }
-    room.messageSeq += 1;
-    room.chat.push({
-      id: `${room.id}_${room.messageSeq}`,
-      senderId: "system",
-      senderName: "系统",
-      text: `${player.name}已进入房间。`,
-      time: nowText(),
-    });
-    if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+    pushSystemMessage(io, room, `${player.name}已进入房间。`);
     cb?.({ ok: true, roomId, token: tokenValue, playerId: player.id });
+    emitStaticMeta(socket);
+    emitChatFull(socket, room);
     emitState(io, room);
   });
 
@@ -2110,6 +2191,7 @@ io.on("connection", (socket) => {
     room.settings = {
       ...room.settings,
       ...payload,
+      roomName: typeof payload?.roomName === "string" ? payload.roomName.trim().slice(0, 10) : room.settings.roomName,
       password: typeof payload?.password === "string" ? payload.password : room.settings.password,
       maxPlayers: clampMaxPlayers(payload?.maxPlayers ?? room.settings.maxPlayers),
       hintRounds: normalizeHintRounds(payload?.hintRounds, room.settings.hintRounds),
@@ -2119,6 +2201,9 @@ io.on("connection", (socket) => {
       entryFee: Number(payload?.entryFee || room.settings.entryFee),
       allowDuplicateRoles:
         typeof payload?.allowDuplicateRoles === "boolean" ? payload.allowDuplicateRoles : room.settings.allowDuplicateRoles,
+      showOtherSpiritStone:
+        typeof payload?.showOtherSpiritStone === "boolean" ? payload.showOtherSpiritStone : room.settings.showOtherSpiritStone,
+      revealBidDisplay: payload?.revealBidDisplay === "rank" ? "rank" : payload?.revealBidDisplay === "amount" ? "amount" : room.settings.revealBidDisplay,
     };
 
     if (!room.settings.allowDuplicateRoles) {
@@ -2160,6 +2245,7 @@ io.on("connection", (socket) => {
     if (!round || round.auction.phase !== "行动中") return;
     if (!round.auction.activePlayerIds.includes(player.id)) return;
     if (round.auction.submittedIds.includes(player.id)) return;
+    if (round.auction.forfeitedThisRound?.[player.id]) return;
     if (round.auction.usedTools[player.id]) return;
     if (round.auction.bidRound >= 6) {
       round.toolHints[player.id].push("推演提示：第六轮及之后不可继续推演。");
@@ -2207,6 +2293,7 @@ io.on("connection", (socket) => {
     if (!round || round.auction.phase !== "行动中") return;
     if (!round.auction.activePlayerIds.includes(player.id)) return;
     if (round.auction.submittedIds.includes(player.id)) return;
+    if (round.auction.forfeitedThisRound?.[player.id]) return;
     if (isBankrupt(player)) {
       round.toolHints[player.id].push("竞价提示：你已破产，无法继续参与竞拍。请等待本局结束。");
       emitState(io, room);
@@ -2222,10 +2309,20 @@ io.on("connection", (socket) => {
     if (bid === null) {
       round.auction.statusByPlayer = {
         ...(round.auction.statusByPlayer || {}),
-        [player.id]: isBankrupt(player) ? "破产" : !player.connected || player.managed ? "离线" : "放弃",
+        [player.id]: isBankrupt(player)
+          ? "破产"
+          : !player.connected
+            ? "离线"
+            : player.managed
+              ? (player.managedReason === "托管" ? "托管" : "离线")
+              : "放弃",
+      };
+      round.auction.forfeitedThisRound = {
+        ...(round.auction.forfeitedThisRound || {}),
+        [player.id]: true,
       };
     }
-    round.auction.bids[player.id] = bid;
+    round.auction.bids[player.id] = bid === null ? 0 : bid;
     round.auction.submittedIds.push(player.id);
     processRound(room);
     emitState(io, room);
@@ -2239,14 +2336,28 @@ io.on("connection", (socket) => {
     if (!round || round.auction.phase !== "回合结算" || !round.settlement) return;
     const viewer = round.settlement.viewers[player.id];
     if (!viewer) return;
-    const total = round.settlement.revealOrder.length;
     if (mode !== "instant") return;
     viewer.mode = "instant";
-    viewer.chosenAt = Date.now();
-    viewer.revealIndex = total;
-    viewer.nextRevealAt = null;
     viewer.completed = true;
+    viewer.chosenAt = Date.now();
     player.stats.revealsFastForwarded += 1;
+    if (room.game && room.game.currentRound >= room.game.totalRounds && !room.latestResult) {
+      room.latestResult = buildGameResult(room);
+      room.game.status = "已完成";
+    }
+    emitState(io, room);
+  });
+
+  socket.on("settlement:revealCompleted", () => {
+    const found = findBySocket(socket);
+    if (!found) return;
+    const { room, player } = found;
+    const round = getCurrentRound(room);
+    if (!round || round.auction.phase !== "回合结算" || !round.settlement) return;
+    const viewer = round.settlement.viewers[player.id];
+    if (!viewer || viewer.completed) return;
+    viewer.completed = true;
+    viewer.chosenAt = viewer.chosenAt || Date.now();
     if (room.game && room.game.currentRound >= room.game.totalRounds && !room.latestResult) {
       room.latestResult = buildGameResult(room);
       room.game.status = "已完成";
@@ -2285,7 +2396,7 @@ io.on("connection", (socket) => {
     const found = findBySocket(socket);
     if (!found) return;
     const { room, player } = found;
-    const clean = String(text || "").trim().slice(0, 200);
+    const clean = String(text || "").trim().slice(0, 70);
     if (!clean) return;
     room.messageSeq += 1;
     const msg = {
@@ -2297,7 +2408,7 @@ io.on("connection", (socket) => {
     };
     room.chat.push(msg);
     if (room.chat.length > 80) room.chat = room.chat.slice(-80);
-    emitState(io, room);
+    emitChatNew(io, room, msg);
   });
 
 
@@ -2339,15 +2450,7 @@ io.on("connection", (socket) => {
       io.sockets.sockets.get(target.socketId)?.leave(room.id);
     }
     removePlayerCompletely(room, target.id);
-    room.messageSeq += 1;
-    room.chat.push({
-      id: `${room.id}_${room.messageSeq}`,
-      senderId: "system",
-      senderName: "系统",
-      text: `${target.name}已被房主请离房间。`,
-      time: nowText(),
-    });
-    if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+    pushSystemMessage(io, room, `${target.name}已被房主请离房间。`);
     emitState(io, room);
     cb?.({ ok: true });
   });
@@ -2358,20 +2461,13 @@ io.on("connection", (socket) => {
     const { room, player } = found;
     player.connected = false;
     player.managed = true;
+    player.managedReason = "离线";
     player.socketId = "";
     player.ready = true;
 
     if (room.ownerId === player.id) {
       assignNextOwner(room);
-      room.messageSeq += 1;
-      room.chat.push({
-        id: `${room.id}_${room.messageSeq}`,
-        senderId: "system",
-        senderName: "系统",
-        text: `${player.name}已断线，房主暂移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}。`,
-        time: nowText(),
-      });
-      if (room.chat.length > 80) room.chat = room.chat.slice(-80);
+      pushSystemMessage(io, room, `${player.name}已断线，房主暂移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}。`);
     }
 
     if (room.phase === "房间准备" && room.players.every((p) => !p.connected && p.managed)) {

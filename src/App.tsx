@@ -56,6 +56,15 @@ const QUALITY_GLOW: Record<string, string> = {
   凡: "shadow-[0_0_12px_rgba(100,116,139,0.24)]",
 };
 
+const QUALITY_TEXT_COLOR: Record<string, string> = {
+  圣: "text-red-300",
+  天: "text-orange-300",
+  地: "text-fuchsia-300",
+  玄: "text-sky-300",
+  黄: "text-emerald-300",
+  凡: "text-slate-300",
+};
+
 function cn(...arr: Array<string | false | null | undefined>) {
   return arr.filter(Boolean).join(" ");
 }
@@ -180,11 +189,17 @@ function HoverTip({
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ left: 0, top: 0, width: 320, transform: "translate(-50%, 0)" as string });
+  const [pos, setPos] = useState({ left: 0, top: 0, width: 320, transform: "translate(-50%, 0)" as string, ready: false });
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const tipRef = useRef<HTMLDivElement | null>(null);
   const holdTimerRef = useRef<number | null>(null);
   const canHover = typeof window !== "undefined" && !!window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches;
+
+  useEffect(() => {
+    if (open) {
+      setPos((prev) => ({ ...prev, ready: false }));
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -210,6 +225,7 @@ function HoverTip({
         top: safeTop,
         width: maxWidth,
         transform: useTop ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+        ready: true,
       });
     };
     const closeByOutside = (event: PointerEvent) => {
@@ -251,6 +267,7 @@ function HoverTip({
         top: safeTop,
         width: maxWidth,
         transform: useTop ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+        ready: true,
       });
     });
     return () => window.cancelAnimationFrame(raf);
@@ -296,6 +313,7 @@ function HoverTip({
                 width: pos.width,
                 maxWidth: pos.width,
                 transform: pos.transform,
+                opacity: pos.ready ? 1 : 0,
               }}
             >
               {content}
@@ -486,6 +504,94 @@ function ShapePopover({
   );
 }
 
+function QualityPopover({
+  open,
+  anchorRef,
+  value,
+  onClose,
+  onSelect,
+  onClear,
+}: {
+  open: boolean;
+  anchorRef: React.RefObject<HTMLElement | null>;
+  value: string;
+  onClose: () => void;
+  onSelect: (quality: string) => void;
+  onClear: () => void;
+}) {
+  const [pos, setPos] = useState({ left: 0, top: 0, width: 320 });
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.min(320, window.innerWidth - 16);
+      const left = Math.min(Math.max(rect.left + rect.width / 2, width / 2 + 8), window.innerWidth - width / 2 - 8);
+      const top = Math.min(rect.bottom + 8, window.innerHeight - 420);
+      setPos({ left, top, width });
+    };
+    const closeByOutside = (event: PointerEvent) => {
+      if (!anchorRef.current?.contains(event.target as Node)) {
+        const target = event.target as HTMLElement;
+        if (!target.closest?.("[data-quality-panel='1']")) onClose();
+      }
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    document.addEventListener("pointerdown", closeByOutside);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      document.removeEventListener("pointerdown", closeByOutside);
+    };
+  }, [open, anchorRef, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      data-quality-panel="1"
+      className="fixed z-[130] rounded-3xl border border-white/10 bg-[#0b1020]/96 p-2 shadow-2xl backdrop-blur-xl"
+      style={{ left: pos.left, top: pos.top, width: pos.width, transform: "translate(-50%, 0)" }}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs text-amber-100">品级筛选</p>
+          <p className="text-[10px] text-zinc-400">当前：{value === "全部" ? "全部品级" : value}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-zinc-300" onClick={onClear}>清空</button>
+          <button className="rounded-lg border border-white/10 px-2 py-1 text-[10px] text-zinc-300" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {QUALITIES.map((quality) => {
+          const active = value === quality;
+          return (
+            <button
+              key={quality}
+              onClick={() => {
+                onSelect(quality);
+                onClose();
+              }}
+              className={cn(
+                "rounded-xl border px-3 py-2 text-sm font-medium",
+                active ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-white/10 bg-slate-950/60",
+                QUALITY_TEXT_COLOR[quality]
+              )}
+            >
+              {quality}
+            </button>
+          );
+        })}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function ToolPopover({
   open,
   anchorRef,
@@ -585,6 +691,8 @@ function ToolPopover({
 export function App() {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState<ServerState | null>(null);
+  const [staticMeta, setStaticMeta] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [roomList, setRoomList] = useState<any[]>([]);
   const [playerName, setPlayerName] = useState(localStorage.getItem("player_name") || "");
   const [joinRoomId, setJoinRoomId] = useState(localStorage.getItem("room_id") || "");
@@ -597,7 +705,7 @@ export function App() {
   const [showKeypad, setShowKeypad] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
   const [codexViewMode, setCodexViewMode] = useState<"list" | "card">("card");
-  const [catalogSort, setCatalogSort] = useState<{ key: "type" | "quality" | "size" | "price"; direction: "asc" | "desc" }>({
+  const [catalogSort, setCatalogSort] = useState<{ key: "type" | "name" | "quality" | "shape" | "size" | "price"; direction: "asc" | "desc" }>({
     key: "type",
     direction: "asc",
   });
@@ -605,11 +713,14 @@ export function App() {
   const [statsRoundTab, setStatsRoundTab] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
-  const [catalogFilter, setCatalogFilter] = useState({ type: "全部", quality: "全部", shape: "全部", min: 0, max: 999999 });
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const [catalogFilter, setCatalogFilter] = useState({ type: "全部", quality: "全部", shape: "全部", min: 0, max: 99999999 });
   const [catalogFocusItemId, setCatalogFocusItemId] = useState<string | null>(null);
+  const [localRevealIndex, setLocalRevealIndex] = useState(0);
   const [statsAutoOpenedKey, setStatsAutoOpenedKey] = useState<string | null>(null);
   const [uiDialog, setUiDialog] = useState<{ title: string; message: string } | null>(null);
   const [settingsForm, setSettingsForm] = useState({
+    roomName: "",
     password: "",
     totalRounds: 10,
     initialSpiritStone: 500000,
@@ -618,19 +729,24 @@ export function App() {
     hintRounds: [1, 3] as number[],
     multipliers: [2, 1.6, 1.4, 1.2, 1] as number[],
     allowDuplicateRoles: true,
+    showOtherSpiritStone: true,
+    revealBidDisplay: "amount" as "amount" | "rank",
   });
 
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const toolAnchorRef = useRef<HTMLButtonElement | null>(null);
   const bidAnchorRef = useRef<HTMLButtonElement | null>(null);
   const shapeAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const qualityAnchorRef = useRef<HTMLButtonElement | null>(null);
   const warehouseTipHoldRef = useRef<number | null>(null);
+  const localRevealIndexRef = useRef(0);
   const [warehouseTip, setWarehouseTip] = useState<null | { item: any; rect: DOMRect }>(null);
   const audio = useGameAudio();
   const lastChatMessageIdRef = useRef<string>("");
   const lastRoundAnnounceKeyRef = useRef<string>("");
   const lastCountdownSecondRef = useRef<number | null>(null);
   const lastRevealedItemIdsRef = useRef<Set<string>>(new Set());
+  const syncedChatRoomIdRef = useRef<string>("");
 
   const socket = useMemo<Socket>(() => {
     const token = localStorage.getItem("player_token") || "";
@@ -649,16 +765,44 @@ export function App() {
       socket.emit("room:list", (res: any) => {
         if (res?.ok) setRoomList(res.rooms || []);
       });
+      socket.emit("chat:sync", (res: any) => {
+        if (res?.ok) setChatMessages(Array.isArray(res.messages) ? res.messages : []);
+      });
     });
     socket.on("disconnect", () => setConnected(false));
     socket.on("connect_error", (err: Error) => {
       console.error("Socket连接失败:", err.message);
     });
+    socket.on("meta:static", (payload: any) => {
+      setStaticMeta(payload);
+    });
+    socket.on("chat:full", (payload: any[]) => {
+      setChatMessages(Array.isArray(payload) ? payload : []);
+    });
+    socket.on("chat:new", (payload: any) => {
+      setChatMessages((prev) => {
+        if (!payload?.id) return prev;
+        if (prev.some((msg) => msg.id === payload.id)) return prev;
+        return [...prev, payload].slice(-80);
+      });
+    });
     socket.on("state:update", (payload: any) => {
       setState(payload);
-      if (payload?.room?.roomId) localStorage.setItem("room_id", payload.room.roomId);
+      const nextRoomId = payload?.room?.roomId || "";
+      if (nextRoomId) {
+        localStorage.setItem("room_id", nextRoomId);
+        if (syncedChatRoomIdRef.current !== nextRoomId) {
+          syncedChatRoomIdRef.current = nextRoomId;
+          socket.emit("chat:sync", (res: any) => {
+            if (res?.ok) setChatMessages(Array.isArray(res.messages) ? res.messages : []);
+          });
+        }
+      } else {
+        syncedChatRoomIdRef.current = "";
+      }
       if (payload?.room?.settings) {
         setSettingsForm({
+          roomName: payload.room.settings.roomName || "",
           password: payload.room.settings.password || "",
           totalRounds: payload.room.settings.totalRounds,
           initialSpiritStone: payload.room.settings.initialSpiritStone,
@@ -667,6 +811,8 @@ export function App() {
           hintRounds: Array.isArray(payload.room.settings.hintRounds) ? payload.room.settings.hintRounds : [1, 3],
           multipliers: Array.isArray(payload.room.settings.multipliers) ? payload.room.settings.multipliers : [2, 1.6, 1.4, 1.2, 1],
           allowDuplicateRoles: Boolean(payload.room.settings.allowDuplicateRoles),
+          showOtherSpiritStone: payload.room.settings.showOtherSpiritStone !== false,
+          revealBidDisplay: payload.room.settings.revealBidDisplay === "rank" ? "rank" : "amount",
         });
       }
       socket.emit("room:list", (res: any) => {
@@ -686,7 +832,7 @@ export function App() {
   useEffect(() => {
     if (!chatListRef.current) return;
     chatListRef.current.scrollTop = chatListRef.current.scrollHeight;
-  }, [state?.chat]);
+  }, [chatMessages]);
 
   useEffect(() => {
     const result = state?.room?.latestResult;
@@ -718,9 +864,9 @@ export function App() {
   const selfId = state?.selfId;
   const me = room?.players?.find((p: any) => p.id === selfId);
   const isHost = room?.ownerId === selfId;
-  const roleList = state?.meta?.roles || [];
-  const toolList = state?.meta?.tools || [];
-  const catalog = state?.meta?.catalog || [];
+  const roleList = staticMeta?.roles || [];
+  const toolList = staticMeta?.tools || [];
+  const catalog = staticMeta?.catalog || [];
   const roleSelections = room?.roleSelections || {};
   const currentBidRound = currentRound?.auction?.bidRound || 1;
   const isActionPhase = currentRound?.auction?.phase === "行动中";
@@ -730,6 +876,20 @@ export function App() {
   const isFinalRound = Boolean(game && game.currentRound >= game.totalRounds);
   const canViewStats = Boolean(game?.status === "已完成" && viewer?.completed);
   const isBankrupt = Boolean(me?.bankrupt || state?.self?.bankrupt || ((me?.spiritStone ?? 0) < 0));
+  const currentRoundStatus =
+    currentRound?.auction?.statusByPlayer?.[selfId] ||
+    (currentRound?.auction?.forfeitedThisRound?.[selfId]
+      ? "放弃"
+      : isBankrupt
+        ? "破产"
+        : !me?.connected
+          ? "离线"
+          : me?.managed
+            ? (me as any)?.managedReason === "托管"
+              ? "托管"
+              : "离线"
+            : "");
+  const cannotBidThisRound = Boolean(["放弃", "超时", "破产", "离线", "托管"].includes(currentRoundStatus));
   const usedToolId = currentRound?.auction?.usedTools?.[selfId] || "";
   const usedToolHistory = new Set<string>(currentRound?.auction?.usedToolHistoryByPlayer?.[selfId] || []);
   const unaffordableToolIds = new Set<string>((toolList || []).filter((t: any) => (me?.spiritStone ?? 0) < t.cost).map((t: any) => t.id));
@@ -747,12 +907,25 @@ export function App() {
   const allReadyCountdown = settlement?.allReadyCountdownAt ? Math.max(0, Math.ceil((settlement.allReadyCountdownAt - Date.now()) / 1000)) : 0;
   const forceCountdown = settlement?.forceNextAt ? Math.max(0, Math.ceil((settlement.forceNextAt - Date.now()) / 1000)) : 0;
 
+  const catalogById = useMemo(() => {
+    const map = new Map<string, any>();
+    (catalog || []).forEach((item: any) => map.set(item.id, item));
+    return map;
+  }, [catalog]);
+
+  const resolvedPlacedItems = useMemo(() => {
+    return (currentRound?.placedItems || []).map((item: any) => ({
+      ...catalogById.get(item.id),
+      ...item,
+    }));
+  }, [currentRound?.placedItems, catalogById]);
+
   const settlementVisibleItems = useMemo(() => {
     if (!settlement || !viewer) return [] as any[];
-    const revealIndex = viewer.revealIndex || 0;
+    const revealIndex = Math.max(0, Math.min(localRevealIndex, (settlement.revealOrder || []).length));
     const ids = new Set((settlement.revealOrder || []).slice(0, revealIndex).map((it: any) => it.placedId));
-    return (currentRound?.placedItems || []).filter((it: any) => ids.has(it.placedId));
-  }, [settlement, viewer, currentRound]);
+    return resolvedPlacedItems.filter((it: any) => ids.has(it.placedId));
+  }, [settlement, viewer, localRevealIndex, resolvedPlacedItems]);
 
   const settlementRunningValue = useMemo(() => {
     return settlementVisibleItems.reduce((sum: number, it: any) => sum + (it.price || 0), 0);
@@ -765,14 +938,16 @@ export function App() {
 
   const lowestEstimatedBagValue = useMemo(() => {
     if (!currentRound || settlement) return 0;
-    const allItems = currentRound.placedItems || [];
+    const allItems = resolvedPlacedItems;
     const intel = currentRound.intel || {};
     const knownItemIds = new Set(intel.knownItemIds || []);
     const knownContours = new Set(intel.knownContours || []);
     const knownTypeIds = new Set(intel.knownTypeItemIds || []);
     const qualityByItemId = new Map<string, string>();
     (intel.knownQualityCells || []).forEach((cell: any) => {
-      if (!qualityByItemId.has(cell.itemPlacedId) && cell.quality) qualityByItemId.set(cell.itemPlacedId, cell.quality);
+      const matchedItem = allItems.find((it: any) => it.placedId === cell.itemPlacedId);
+      if (!matchedItem?.quality) return;
+      qualityByItemId.set(cell.itemPlacedId, matchedItem.quality);
     });
 
     return allItems.reduce((sum: number, item: any) => {
@@ -790,7 +965,7 @@ export function App() {
       if (!candidates.length) return sum;
       return sum + Math.min(...candidates.map((candidate: any) => candidate.price || 0));
     }, 0);
-  }, [currentRound, settlement, catalog]);
+  }, [currentRound, settlement, catalog, resolvedPlacedItems]);
 
   const bagSummaryText = settlement ? `总价值：${settlementRunningValue}` : `最低预估：${lowestEstimatedBagValue}`;
 
@@ -810,8 +985,12 @@ export function App() {
       let primary = 0;
       if (catalogSort.key === "type") {
         primary = String(a.type).localeCompare(String(b.type), "zh-Hans-CN");
+      } else if (catalogSort.key === "name") {
+        primary = String(a.name).localeCompare(String(b.name), "zh-Hans-CN");
       } else if (catalogSort.key === "quality") {
         primary = (qualityIndex.get(a.quality) ?? 999) - (qualityIndex.get(b.quality) ?? 999);
+      } else if (catalogSort.key === "shape") {
+        primary = String(a.shape).localeCompare(String(b.shape), "zh-Hans-CN");
       } else if (catalogSort.key === "size") {
         primary = (a.size || 0) - (b.size || 0);
       } else if (catalogSort.key === "price") {
@@ -833,14 +1012,14 @@ export function App() {
 
   const revealedPlacedIds = useMemo(() => {
     if (!settlement || !viewer) return new Set<string>();
-    return new Set((settlement.revealOrder || []).slice(0, viewer.revealIndex || 0).map((it: any) => it.placedId));
-  }, [settlement, viewer]);
+    return new Set((settlement.revealOrder || []).slice(0, localRevealIndex).map((it: any) => it.placedId));
+  }, [settlement, viewer, localRevealIndex]);
 
   const qualityCellMap = useMemo(() => {
     const map = new Map<string, any>();
     if (!currentRound?.intel?.knownQualityCells) return map;
     currentRound.intel.knownQualityCells.forEach((cell: any) => {
-      if (!map.has(cell.itemPlacedId)) map.set(cell.itemPlacedId, cell);
+      map.set(cell.itemPlacedId, cell);
     });
     return map;
   }, [currentRound?.intel?.knownQualityCells]);
@@ -850,13 +1029,13 @@ export function App() {
     if (settlement) {
       return settlementVisibleItems.map((item: any) => ({ ...item, viewMode: "item", knownQuality: true, knownType: true, qualityCell: null }));
     }
-    const intel = currentRound.intel || { knownItemIds: [], knownContours: [], knownQualityItemIds: [], knownTypeItemIds: [] };
-    return (currentRound.placedItems || []).flatMap((item: any) => {
+    const intel = currentRound.intel || { knownItemIds: [], knownContours: [], knownTypeItemIds: [] };
+    return resolvedPlacedItems.flatMap((item: any) => {
       const knownItem = revealedPlacedIds.has(item.placedId) || intel.knownItemIds.includes(item.placedId);
       const knownContour = intel.knownContours.includes(item.placedId);
       const qualityCell = qualityCellMap.get(item.placedId) || null;
-      const knownQuality = intel.knownQualityItemIds?.includes(item.placedId) || Boolean(qualityCell);
-      const knownType = intel.knownTypeItemIds?.includes(item.placedId) || knownItem;
+      const knownQuality = Boolean(qualityCell);
+      const knownType = intel.knownTypeItemIds?.includes(item.placedId);
       if (knownItem) return [{ ...item, viewMode: "item", knownQuality: true, knownType: true, qualityCell }];
       if (knownContour) return [{ ...item, viewMode: "contour", knownQuality, knownType, qualityCell }];
       return [];
@@ -870,13 +1049,75 @@ export function App() {
   const visibleQualityCells = useMemo(() => {
     if (settlement) return [] as any[];
     if (!currentRound?.intel?.knownQualityCells) return [] as any[];
-    return currentRound.intel.knownQualityCells.filter((cell: any) => !visibleItemIds.has(cell.itemPlacedId) && !contourItemIds.has(cell.itemPlacedId));
-  }, [currentRound, visibleItemIds, contourItemIds, settlement]);
+    const knownTypeIds = new Set(currentRound?.intel?.knownTypeItemIds || []);
+    return currentRound.intel.knownQualityCells
+      .filter((cell: any) => !visibleItemIds.has(cell.itemPlacedId) && !contourItemIds.has(cell.itemPlacedId))
+      .map((cell: any) => {
+        const matchedItem = resolvedPlacedItems.find((it: any) => it.placedId === cell.itemPlacedId);
+        return {
+          ...cell,
+          quality: matchedItem?.quality,
+          type: knownTypeIds.has(cell.itemPlacedId) ? matchedItem?.type : null,
+        };
+      })
+      .filter((cell: any) => cell.quality);
+  }, [currentRound, visibleItemIds, contourItemIds, settlement, resolvedPlacedItems]);
 
   useEffect(() => {
     if (usedToolId) setSelectedTool(toolList.find((t: any) => t.id === usedToolId) || null);
     else setSelectedTool(null);
   }, [usedToolId, toolList]);
+
+  useEffect(() => {
+    localRevealIndexRef.current = localRevealIndex;
+  }, [localRevealIndex]);
+
+  const settlementKey = settlement ? `${currentRound?.id || ""}_${selfId || ""}` : null;
+  const lastSettlementKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!settlement || !viewer) {
+      setLocalRevealIndex(0);
+      lastSettlementKeyRef.current = null;
+      return;
+    }
+    const total = (settlement.revealOrder || []).length;
+    const currentKey = settlementKey;
+    const isNewSettlement = currentKey !== lastSettlementKeyRef.current;
+
+    if (isNewSettlement) {
+      lastSettlementKeyRef.current = currentKey;
+      setLocalRevealIndex(viewer.mode === "instant" || viewer.completed ? total : 0);
+    }
+
+    if (viewer.mode === "instant") {
+      setLocalRevealIndex(total);
+      return;
+    }
+
+    if (viewer.completed && localRevealIndexRef.current >= total) {
+      return;
+    }
+
+    if (!total) {
+      if (!viewer.completed) socket.emit("settlement:revealCompleted");
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setLocalRevealIndex((prev) => {
+        const next = Math.min(total, prev + 1);
+        if (next >= total) {
+          window.clearInterval(timer);
+          if (!viewer.completed) {
+            window.setTimeout(() => socket.emit("settlement:revealCompleted"), 0);
+          }
+        }
+        return next;
+      });
+    }, settlement.stepMs || 320);
+    return () => window.clearInterval(timer);
+  }, [settlementKey, settlement?.stepMs, settlement?.revealOrder, viewer?.mode, viewer?.completed, socket]);
 
   useEffect(() => {
     const closeWarehouseTip = () => setWarehouseTip(null);
@@ -1032,7 +1273,7 @@ export function App() {
   function sendChat() {
     if (!chatInput.trim()) return;
     audio.click();
-    socket.emit("chat:send", { text: chatInput.trim() });
+    socket.emit("chat:send", { text: chatInput.trim().slice(0, 70) });
     setChatInput("");
   }
 
@@ -1074,15 +1315,40 @@ export function App() {
   }
 
   function getRoundBidStatus(playerId: string, roundNo: number) {
-    const log = currentRound?.auction?.logs?.find((l: any) => l.roundNo === roundNo);
+    const logs = currentRound?.auction?.logs || [];
+    const maxReachedRoundNo = currentBidRound || 0;
+    const getCarryStatus = () => {
+      const previous = [...logs]
+        .filter((l: any) => l.roundNo <= Math.min(roundNo, maxReachedRoundNo))
+        .sort((a: any, b: any) => b.roundNo - a.roundNo)
+        .find((l: any) => (l?.statusByPlayer?.[playerId] || "") !== "");
+      return previous?.statusByPlayer?.[playerId] || "";
+    };
+
+    if (roundNo > maxReachedRoundNo) {
+      return "";
+    }
+
+    const log = logs.find((l: any) => l.roundNo === roundNo);
     if (log) {
-      const bid = log?.bids?.[playerId];
-      return bid === null || bid === undefined ? "放弃" : String(bid);
+      const rawBid = log?.bids?.[playerId];
+      const bid = Number(rawBid ?? 0);
+      const directStatus = log?.statusByPlayer?.[playerId] || "";
+      const status = directStatus || (rawBid === undefined ? getCarryStatus() : "");
+      const isSettlementPhase = currentRound?.auction?.phase === "回合结算";
+      const displayMode = isSettlementPhase ? "amount" : (room?.settings?.revealBidDisplay || "amount");
+      if (displayMode === "rank") {
+        const numericEntries = Object.keys(log?.bids || {}).map((pid) => ({ pid, bid: Number(log.bids?.[pid] ?? 0) }));
+        const higherCount = numericEntries.filter((entry) => entry.bid > bid).length;
+        return `第${higherCount + 1}`;
+      }
+      return status || String(bid);
     }
     if (roundNo === currentBidRound && isActionPhase) {
       return currentRound?.auction?.submittedIds?.includes(playerId) ? "✓" : "";
     }
-    return "";
+    const carryStatus = getCarryStatus();
+    return carryStatus || "";
   }
 
   function getSettlementWinnerName() {
@@ -1094,7 +1360,13 @@ export function App() {
     setCatalogSort({ key: "type", direction: "asc" });
   }
 
-  function toggleCatalogSort(key: "type" | "quality" | "size" | "price") {
+  function resetCatalogFilterAndSort() {
+    setCatalogFocusItemId(null);
+    setCatalogFilter({ type: "全部", quality: "全部", shape: "全部", min: 0, max: 99999999 });
+    resetCatalogSort();
+  }
+
+  function toggleCatalogSort(key: "type" | "name" | "quality" | "shape" | "size" | "price") {
     setCatalogSort((prev) =>
       prev.key === key
         ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
@@ -1102,7 +1374,7 @@ export function App() {
     );
   }
 
-  function renderSortMark(key: "type" | "quality" | "size" | "price") {
+  function renderSortMark(key: "type" | "name" | "quality" | "shape" | "size" | "price") {
     if (catalogSort.key !== key) return "↕";
     return catalogSort.direction === "asc" ? "↑" : "↓";
   }
@@ -1152,6 +1424,11 @@ export function App() {
     return player.ready ? "已准备" : "未准备";
   }
 
+  function canSeePlayerSpiritStone(playerId: string) {
+    if (playerId === selfId) return true;
+    return room?.settings?.showOtherSpiritStone !== false;
+  }
+
   function getRolePickedNames(roleId: string) {
     return (roleSelections?.[roleId] || [])
       .map((pid: string) => room?.players?.find((p: any) => p.id === pid)?.name)
@@ -1163,7 +1440,7 @@ export function App() {
   const gameMain = room && game;
 
   useEffect(() => {
-    const messages = state?.chat || [];
+    const messages = chatMessages || [];
     if (!messages.length) return;
     const latest = messages[messages.length - 1];
     if (!latest?.id || latest.id === lastChatMessageIdRef.current) return;
@@ -1174,10 +1451,14 @@ export function App() {
       return;
     }
 
-    if (latest.senderId !== selfId && latest.text) {
-      audio.speak(`${latest.senderName}说：${latest.text}`, 1.05);
+    if (latest.text) {
+      if (latest.senderId === selfId) {
+        audio.speak(`你说：${latest.text}`, 1.05);
+      } else {
+        audio.speak(`${latest.senderName}说：${latest.text}`, 1.05);
+      }
     }
-  }, [state?.chat, selfId, audio]);
+  }, [chatMessages, selfId, audio]);
 
   useEffect(() => {
     if (!game || !currentRound || !isActionPhase) return;
@@ -1278,7 +1559,7 @@ export function App() {
                 return (
                 <div key={r.roomId} className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm text-amber-100">房间 {r.roomId}</p>
+                    <p className="text-sm text-amber-100">{r.roomName ? `${r.roomName} · ${r.roomId}` : `房间 ${r.roomId}`}</p>
                     <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-zinc-400">{r.phase}</span>
                   </div>
                   <p className="mt-2 text-xs text-zinc-400">房主：{r.ownerName}</p>
@@ -1384,6 +1665,7 @@ export function App() {
               <p className="mb-3 text-lg text-amber-100">房间信息</p>
               <div className="space-y-2 text-sm text-zinc-300">
                 <p>房间ID：{room.roomId}</p>
+                <p>房间名称：{room.settings.roomName || "未命名"}</p>
                 <p>房主：{room.players.find((p: any) => p.id === room.ownerId)?.name || "无"}</p>
                 <p>房间密码：{room.settings.password ? "已设置" : "无"}</p>
                 <p>人数上限：{room.settings.maxPlayers}</p>
@@ -1391,6 +1673,8 @@ export function App() {
                 <p>开局灵石：{room.settings.initialSpiritStone}</p>
                 <p>入场券：每回合 {room.settings.entryFee}</p>
                 <p>修士重复：{room.settings.allowDuplicateRoles ? "允许" : "禁止"}</p>
+                <p>其他玩家灵石：{room.settings.showOtherSpiritStone === false ? "不显示" : "显示"}</p>
+                <p>轮次揭晓显示：{room.settings.revealBidDisplay === "rank" ? "排名" : "金额"}</p>
                 <p>系统提示轮次：{(room.settings.hintRounds || []).join("、") || "无"}</p>
                 <p>前5轮判定倍率：{(room.settings.multipliers || [2, 1.6, 1.4, 1.2, 1]).join(" / ")} 倍</p>
               </div>
@@ -1399,7 +1683,7 @@ export function App() {
             <section className="rounded-3xl border border-white/10 bg-black/30 p-5 backdrop-blur-xl">
               <p className="mb-3 text-lg text-emerald-100">聊天</p>
               <div ref={chatListRef} className="h-56 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 pr-1 text-xs">
-                {(state?.chat || []).map((m: any) => (
+                {(chatMessages || []).map((m: any) => (
                   <div key={m.id} className="rounded-lg bg-black/25 px-2 py-1">
                     <p><span className="text-zinc-500">[{m.time}]</span> <span className="text-amber-100">{m.senderName}</span></p>
                     <p className="mt-1 break-words text-zinc-200">{m.text}</p>
@@ -1407,7 +1691,7 @@ export function App() {
                 ))}
               </div>
               <div className="mt-2 flex gap-2">
-                <input className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }} placeholder="输入消息" />
+                <input maxLength={70} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm" value={chatInput} onChange={(e) => setChatInput(e.target.value.slice(0, 70))} onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }} placeholder="输入消息（最多70字）" />
                 <button className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 text-emerald-100" onClick={sendChat}>发送</button>
               </div>
             </section>
@@ -1509,7 +1793,7 @@ export function App() {
                           />
                         </div>
                         <div className="text-right">
-                          <p className={cn("text-sm", p.bankrupt ? "text-rose-300" : "text-amber-200")}>{p.spiritStone}</p>
+                          <p className={cn("text-sm", p.bankrupt ? "text-rose-300" : "text-amber-200")}>{canSeePlayerSpiritStone(p.id) ? p.spiritStone : "???"}</p>
                           <p className="text-[11px] text-zinc-500">{p.bankrupt ? "破产" : p.connected ? "在线" : "托管"}</p>
                         </div>
                       </div>
@@ -1606,11 +1890,11 @@ export function App() {
                             if (!isItem) {
                               setCatalogFocusItemId(null);
                               setCatalogFilter({
-                                type: "全部",
+                                type: item.knownType ? item.type : "全部",
                                 quality: hasKnownQuality ? item.quality : "全部",
-                                shape: item.shape,
+                                shape: item.shape || "全部",
                                 min: 0,
-                                max: 999999,
+                                max: 99999999,
                               });
                               setShowCodex(true);
                             }
@@ -1673,7 +1957,13 @@ export function App() {
                         key={`${cell.x}-${cell.y}-${index}`}
                         onClick={() => {
                           setCatalogFocusItemId(null);
-                          setCatalogFilter({ type: "全部", quality: cell.quality, shape: "全部", min: 0, max: 999999 });
+                          setCatalogFilter({
+                            type: cell.type || "全部",
+                            quality: cell.quality || "全部",
+                            shape: "全部",
+                            min: 0,
+                            max: 99999999,
+                          });
                           setShowCodex(true);
                         }}
                         className={cn("quality-pulse absolute z-20 rounded-[8px] border", QUALITY_COLOR[cell.quality], QUALITY_GLOW[cell.quality])}
@@ -1685,6 +1975,7 @@ export function App() {
                           boxSizing: "border-box",
                         }}
                       >
+                        {cell.type && <span className="absolute left-1 top-1 hidden rounded-md bg-black/20 px-1 py-0.5 text-[9px] text-white/90 md:block">{cell.type}</span>}
                         <span className="absolute right-1 top-1 hidden rounded-md bg-black/20 px-1 py-0.5 text-[9px] text-amber-100 md:block">{cell.quality}</span>
                       </button>
                     ))}
@@ -1706,7 +1997,7 @@ export function App() {
                       <button
                         ref={toolAnchorRef}
                         className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/10 text-center text-[11px] text-cyan-100 disabled:opacity-40"
-                        disabled={!isActionPhase || isSubmitted || !!usedToolId || isBankrupt || currentBidRound >= 6}
+                        disabled={!isActionPhase || isSubmitted || !!usedToolId || isBankrupt || cannotBidThisRound || currentBidRound >= 6}
                         onClick={() => setShowToolPicker(true)}
                       >
                       推演
@@ -1719,11 +2010,11 @@ export function App() {
                       <input
                         value={bidInput}
                         onChange={(e) => setBidInput(e.target.value.replace(/\D/g, "").slice(0, 9))}
-                        placeholder="手动输入竞价"
-                        disabled={!isActionPhase || isSubmitted || isBankrupt}
+                        placeholder={cannotBidThisRound ? currentRoundStatus : "手动输入竞价"}
+                        disabled={!isActionPhase || isSubmitted || isBankrupt || cannotBidThisRound}
                         className="min-w-0 flex-1 bg-transparent text-left text-sm outline-none placeholder:text-zinc-500 disabled:opacity-40"
                       />
-                      <button ref={bidAnchorRef} className="ml-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt} onClick={() => setShowKeypad(true)}>
+                      <button ref={bidAnchorRef} className="ml-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-zinc-300 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt || cannotBidThisRound} onClick={() => setShowKeypad(true)}>
                         出价
                       </button>
                     </div>
@@ -1731,11 +2022,16 @@ export function App() {
                     <HoverTip
                       side="top"
                       content={<><p className="text-emerald-100">提交竞价</p><p className="mt-1 text-zinc-300">本轮判定倍率：{((room?.settings?.multipliers || [2, 1.6, 1.4, 1.2, 1])[Math.min(currentBidRound, 5) - 1] ?? 1)} 倍</p></>}
-                      label={<button className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-[11px] text-emerald-100 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt} onClick={submitBid}>提交</button>}
+                      label={<button className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-[11px] text-emerald-100 disabled:opacity-40" disabled={!isActionPhase || isSubmitted || isBankrupt || cannotBidThisRound} onClick={submitBid}>提交</button>}
                     />
                   </div>
 
                   <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
+                    {cannotBidThisRound && !settlement && (
+                      <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                        本回合已不能出价（{currentRoundStatus}）
+                      </div>
+                    )}
                     {settlement && viewer?.mode === "delay" && !viewer?.completed && (
                       <button
                         className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-2 text-[11px] text-cyan-100"
@@ -1774,7 +2070,7 @@ export function App() {
                   <p className="mb-2 text-emerald-100">聊天</p>
                   <div className="flex h-full min-h-0 flex-col">
                     <div ref={chatListRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 pr-1 pb-3">
-                      {(state.chat || []).map((m: any) => (
+                      {(chatMessages || []).map((m: any) => (
                         <div key={m.id} className="rounded-lg bg-black/25 px-2 py-1">
                           <p><span className="text-zinc-500">[{m.time}]</span> <span className="text-amber-100">{m.senderName}</span></p>
                           <p className="mt-1 break-words text-zinc-200">{m.text}</p>
@@ -1782,7 +2078,7 @@ export function App() {
                       ))}
                     </div>
                     <div className="mt-2 flex shrink-0 gap-2">
-                      <input className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }} placeholder="输入消息" />
+                      <input maxLength={70} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={chatInput} onChange={(e) => setChatInput(e.target.value.slice(0, 70))} onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }} placeholder="输入消息（最多70字）" />
                       <button className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 text-emerald-100" onClick={sendChat}>发送</button>
                     </div>
                   </div>
@@ -1800,6 +2096,7 @@ export function App() {
           <div className="mx-auto max-w-2xl rounded-3xl border border-white/10 bg-[#0b1020] p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between"><p className="text-lg text-amber-100">房间设置</p><button className="rounded-xl border border-white/10 px-3 py-1" onClick={() => setSettingsOpen(false)}>关闭</button></div>
             <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-zinc-300">房间名称（最多10字）<input className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.roomName} onChange={(e) => setSettingsForm((s) => ({ ...s, roomName: e.target.value.slice(0, 10) }))} placeholder="可空" maxLength={10} /></label>
               <label className="text-sm text-zinc-300">房间密码<input className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.password} onChange={(e) => setSettingsForm((s) => ({ ...s, password: e.target.value }))} placeholder="可空" /></label>
               <label className="text-sm text-zinc-300">人数上限（2-16）<input type="number" min={2} max={16} className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.maxPlayers} onChange={(e) => setSettingsForm((s) => ({ ...s, maxPlayers: Math.max(2, Math.min(16, Number(e.target.value) || 6)) }))} /></label>
               <label className="text-sm text-zinc-300">回合数量<input type="number" className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={settingsForm.totalRounds} onChange={(e) => setSettingsForm((s) => ({ ...s, totalRounds: Number(e.target.value) || 10 }))} /></label>
@@ -1809,6 +2106,17 @@ export function App() {
                 <span>允许选择相同修士</span>
                 <input type="checkbox" checked={settingsForm.allowDuplicateRoles} onChange={(e) => setSettingsForm((s) => ({ ...s, allowDuplicateRoles: e.target.checked }))} />
               </label>
+              <label className="md:col-span-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-zinc-300">
+                <span>显示其他玩家剩余灵石</span>
+                <input type="checkbox" checked={settingsForm.showOtherSpiritStone} onChange={(e) => setSettingsForm((s) => ({ ...s, showOtherSpiritStone: e.target.checked }))} />
+              </label>
+              <div className="md:col-span-2 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-zinc-300">
+                <span>轮次揭晓显示</span>
+                <div className="inline-flex overflow-hidden rounded-xl border border-white/10">
+                  <button type="button" className={cn("px-3 py-1.5 text-sm", settingsForm.revealBidDisplay === "amount" ? "bg-cyan-500/15 text-cyan-100" : "bg-black/20 text-zinc-400")} onClick={() => setSettingsForm((s) => ({ ...s, revealBidDisplay: "amount" }))}>金额</button>
+                  <button type="button" className={cn("px-3 py-1.5 text-sm", settingsForm.revealBidDisplay === "rank" ? "bg-cyan-500/15 text-cyan-100" : "bg-black/20 text-zinc-400")} onClick={() => setSettingsForm((s) => ({ ...s, revealBidDisplay: "rank" }))}>排名</button>
+                </div>
+              </div>
               <div className="md:col-span-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-3 text-sm text-zinc-300">
                 <p className="mb-2 text-amber-100">系统提示轮次（1-5轮）</p>
                 <div className="flex flex-wrap gap-2">
@@ -1868,6 +2176,7 @@ export function App() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-lg text-fuchsia-100">万物图鉴</p>
               <div className="flex items-center gap-2">
+                <button className="rounded-xl border border-white/10 px-3 py-1 text-sm text-zinc-300" onClick={resetCatalogFilterAndSort}>重置</button>
                 <button className={cn("rounded-xl border px-3 py-1 text-sm", codexViewMode === "list" ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-white/10 text-zinc-300")} onClick={() => { resetCatalogSort(); setCodexViewMode("list"); }}>列表</button>
                 <button className={cn("rounded-xl border px-3 py-1 text-sm", codexViewMode === "card" ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-white/10 text-zinc-300")} onClick={() => setCodexViewMode("card")}>卡片</button>
                 <button className="rounded-xl border border-white/10 px-3 py-1" onClick={() => { setShowCodex(false); setCatalogFocusItemId(null); }}>关闭</button>
@@ -1875,26 +2184,32 @@ export function App() {
             </div>
             <div className="grid gap-2 md:grid-cols-5">
               <select value={catalogFilter.type} onChange={(e) => setCatalogFilter((f) => ({ ...f, type: e.target.value }))} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2"><option value="全部">全部类型</option>{TYPES.map((t: string) => <option key={t} value={t}>{t}</option>)}</select>
-              <select value={catalogFilter.quality} onChange={(e) => setCatalogFilter((f) => ({ ...f, quality: e.target.value }))} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2"><option value="全部">全部品级</option>{QUALITIES.map((q: string) => <option key={q} value={q}>{q}</option>)}</select>
+              <button ref={qualityAnchorRef} className={cn("rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-left", catalogFilter.quality !== "全部" ? QUALITY_TEXT_COLOR[catalogFilter.quality] : "text-zinc-300")} onClick={() => setShowQualityPicker(true)}>
+                {catalogFilter.quality === "全部" ? "选择品级" : `品级：${catalogFilter.quality}`}
+              </button>
               <button ref={shapeAnchorRef} className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-left text-zinc-300" onClick={() => setShowShapePicker(true)}>
                 {catalogFilter.shape === "全部" ? "选择形状" : `形状：${catalogFilter.shape}`}
               </button>
               <input type="number" className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={catalogFilter.min} onChange={(e) => setCatalogFilter((f) => ({ ...f, min: Number(e.target.value) || 0 }))} placeholder="最低价" />
-              <input type="number" className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={catalogFilter.max} onChange={(e) => setCatalogFilter((f) => ({ ...f, max: Number(e.target.value) || 999999 }))} placeholder="最高价" />
+              <input type="number" className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2" value={catalogFilter.max} onChange={(e) => setCatalogFilter((f) => ({ ...f, max: Number(e.target.value) || 99999999 }))} placeholder="最高价" />
             </div>
 
             {codexViewMode === "list" ? (
               <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-slate-950/35 pb-1">
-                <div className="min-w-[760px] text-sm">
-                  <div className="grid grid-cols-[120px_180px_72px_90px_70px_120px] bg-black/30 text-fuchsia-100">
+                <div className="min-w-[860px] w-full text-sm">
+                  <div className="grid w-full grid-cols-[1.15fr_1.8fr_0.9fr_1fr_0.8fr_1fr] bg-black/30 text-fuchsia-100">
                     <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("type")}>
                       类型 {renderSortMark("type")}
                     </button>
-                    <div className="px-3 py-2 whitespace-nowrap">名称</div>
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("name")}>
+                      名称 {renderSortMark("name")}
+                    </button>
                     <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("quality")}>
                       品级 {renderSortMark("quality")}
                     </button>
-                    <div className="px-3 py-2 whitespace-nowrap">形状</div>
+                    <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("shape")}>
+                      形状 {renderSortMark("shape")}
+                    </button>
                     <button type="button" className="px-3 py-2 whitespace-nowrap text-left hover:bg-white/5" onClick={() => toggleCatalogSort("size")}>
                       格数 {renderSortMark("size")}
                     </button>
@@ -1916,7 +2231,7 @@ export function App() {
                         </>
                       }
                       label={
-                        <div className="grid grid-cols-[120px_180px_72px_90px_70px_120px] border-t border-white/10 text-zinc-300 transition hover:bg-white/5">
+                        <div className="grid w-full grid-cols-[1.15fr_1.8fr_0.9fr_1fr_0.8fr_1fr] border-t border-white/10 text-zinc-300 transition hover:bg-white/5">
                           <div className="px-3 py-2 whitespace-nowrap">{it.type}</div>
                           <div className="px-3 py-2 whitespace-nowrap text-zinc-100">{it.name}</div>
                           <div className="px-3 py-2 whitespace-nowrap">{it.quality}</div>
@@ -1962,6 +2277,14 @@ export function App() {
         onClose={() => setShowShapePicker(false)}
         onSelect={(shape) => setCatalogFilter((f) => ({ ...f, shape }))}
         onClear={() => setCatalogFilter((f) => ({ ...f, shape: "全部" }))}
+      />
+      <QualityPopover
+        open={showQualityPicker}
+        anchorRef={qualityAnchorRef}
+        value={catalogFilter.quality}
+        onClose={() => setShowQualityPicker(false)}
+        onSelect={(quality) => setCatalogFilter((f) => ({ ...f, quality }))}
+        onClear={() => setCatalogFilter((f) => ({ ...f, quality: "全部" }))}
       />
       <ToolPopover
         open={showToolPicker}
@@ -2158,7 +2481,13 @@ export function App() {
                       <div key={`${round.roundNo}-${log.roundNo}`} className="overflow-hidden rounded-xl border border-white/10 bg-slate-950/40">
                         <div className="border-b border-white/10 px-3 py-2 text-sm text-zinc-200">第 {log.roundNo} 轮 · 判定倍率 {log.multiplier}</div>
                         <div className="w-full overflow-x-auto">
-                        <table className="w-full min-w-[560px] text-xs text-zinc-300">
+                        <table className="w-full min-w-[720px] table-fixed text-xs text-zinc-300">
+                          <colgroup>
+                            <col className="w-[28%]" />
+                            <col className="w-[20%]" />
+                            <col className="w-[22%]" />
+                            <col className="w-[30%]" />
+                          </colgroup>
                           <thead className="bg-black/20">
                             <tr>
                               <th className="px-3 py-2 text-left">玩家</th>
@@ -2172,13 +2501,13 @@ export function App() {
                               const playerName = log.bidPlayerNames?.[pid] || pid;
                               const toolName = toolList.find((t: any) => t.id === log.usedTools?.[pid])?.name || "-";
                               const bid = log.bids?.[pid];
-                              const bidStatus = bid ?? log.statusByPlayer?.[pid] ?? "放弃";
+                              const bidStatus = log.statusByPlayer?.[pid] || bid || 0;
                               return (
                                 <tr key={pid} className="border-t border-white/10">
                                   <td className="px-3 py-2">{playerName}</td>
                                   <td className="px-3 py-2">{bidStatus}</td>
                                   <td className="px-3 py-2">{toolName}</td>
-                                  <td className="px-3 py-2">{log.winnerId === pid ? "本轮领先" : "-"}</td>
+                                  <td className="px-3 py-2 whitespace-nowrap">{log.winnerId === pid ? "本轮领先" : "-"}</td>
                                 </tr>
                               );
                             })}
