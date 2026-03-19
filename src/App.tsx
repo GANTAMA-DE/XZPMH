@@ -694,6 +694,7 @@ export function App() {
   const [staticMeta, setStaticMeta] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [roomList, setRoomList] = useState<any[]>([]);
+  const [globalOnlineCount, setGlobalOnlineCount] = useState(0);
   const [playerName, setPlayerName] = useState(localStorage.getItem("player_name") || "");
   const [joinRoomId, setJoinRoomId] = useState(localStorage.getItem("room_id") || "");
   const [password, setPassword] = useState("");
@@ -763,7 +764,10 @@ export function App() {
     socket.on("connect", () => {
       setConnected(true);
       socket.emit("room:list", (res: any) => {
-        if (res?.ok) setRoomList(res.rooms || []);
+        if (res?.ok) {
+          setRoomList(res.rooms || []);
+          setGlobalOnlineCount(Number(res.onlineCount || 0));
+        }
       });
       socket.emit("chat:sync", (res: any) => {
         if (res?.ok) setChatMessages(Array.isArray(res.messages) ? res.messages : []);
@@ -815,9 +819,6 @@ export function App() {
           revealBidDisplay: payload.room.settings.revealBidDisplay === "rank" ? "rank" : "amount",
         });
       }
-      socket.emit("room:list", (res: any) => {
-        if (res?.ok) setRoomList(res.rooms || []);
-      });
     });
     socket.on("room:kicked", () => {
       clearIdentityAndRoom();
@@ -1192,7 +1193,10 @@ export function App() {
     setBidInput("");
     socket.auth = { token: "" };
     socket.emit("room:list", (res: any) => {
-      if (res?.ok) setRoomList(res.rooms || []);
+      if (res?.ok) {
+        setRoomList(res.rooms || []);
+        setGlobalOnlineCount(Number(res.onlineCount || 0));
+      }
     });
   }
 
@@ -1548,9 +1552,12 @@ export function App() {
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-black/35 p-5 backdrop-blur-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg text-fuchsia-200">洞府房间列表</h2>
-              <button className="rounded-xl border border-white/10 px-3 py-1 text-sm" onClick={() => { audio.click(); socket.emit("room:list", (res: any) => res?.ok && setRoomList(res.rooms || [])); }}>刷新</button>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="text-lg text-fuchsia-200">洞府房间列表</h2>
+                <span className="text-xs text-zinc-400">全站在线人数：{globalOnlineCount}</span>
+              </div>
+              <button className="rounded-xl border border-white/10 px-3 py-1 text-sm" onClick={() => { audio.click(); socket.emit("room:list", (res: any) => { if (res?.ok) { setRoomList(res.rooms || []); setGlobalOnlineCount(Number(res.onlineCount || 0)); } }); }}>刷新</button>
             </div>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {roomList.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-6 text-sm text-zinc-500">当前没有可加入房间。</div>}

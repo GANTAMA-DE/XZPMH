@@ -235,6 +235,7 @@ const SHAPES = [
 
 const rooms = new Map();
 const playerTokenMap = new Map();
+const connectedSocketIds = new Set();
 const STATIC_META = {
   roles: ROLES,
   tools: TOOLS,
@@ -1835,6 +1836,10 @@ function roomSummary(room) {
   };
 }
 
+function getGlobalOnlineCount() {
+  return connectedSocketIds.size;
+}
+
 function handlePlayerLeave(io, socket, room, player, reason = "主动退出") {
   const leavingPlayerId = player.id;
   const wasOwner = room.ownerId === leavingPlayerId;
@@ -1912,7 +1917,7 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "xuanhuan-auction-server" });
 });
 app.get("/rooms", (_req, res) => {
-  res.json({ ok: true, rooms: [...rooms.values()].map(roomSummary) });
+  res.json({ ok: true, onlineCount: getGlobalOnlineCount(), rooms: [...rooms.values()].map(roomSummary) });
 });
 
 const httpServer = createServer(app);
@@ -2052,6 +2057,7 @@ setInterval(() => {
 }, 200);
 
 io.on("connection", (socket) => {
+  connectedSocketIds.add(socket.id);
   const auth = socket.handshake.auth || {};
   const token = auth.token;
   const known = token ? playerTokenMap.get(token) : null;
@@ -2071,7 +2077,7 @@ io.on("connection", (socket) => {
   }
 
   socket.on("room:list", (cb) => {
-    cb?.({ ok: true, rooms: [...rooms.values()].map(roomSummary) });
+    cb?.({ ok: true, onlineCount: getGlobalOnlineCount(), rooms: [...rooms.values()].map(roomSummary) });
   });
 
   socket.on("chat:sync", (cb) => {
@@ -2456,6 +2462,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    connectedSocketIds.delete(socket.id);
     const found = findBySocket(socket);
     if (!found) return;
     const { room, player } = found;
@@ -2470,7 +2477,8 @@ io.on("connection", (socket) => {
       pushSystemMessage(io, room, `${player.name}已断线，房主暂移交给${room.players.find((p) => p.id === room.ownerId)?.name || "其他修士"}。`);
     }
 
-    if (room.phase === "房间准备" && room.players.every((p) => !p.connected && p.managed)) {
+    const hasAnyOnlinePlayer = room.players.some((p) => p.connected && p.socketId);
+    if (!hasAnyOnlinePlayer) {
       room.players.forEach((p) => {
         if (p.token) playerTokenMap.delete(p.token);
       });
