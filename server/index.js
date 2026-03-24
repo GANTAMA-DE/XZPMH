@@ -197,6 +197,40 @@ const REALM_RANGE = {
   大乘: [80, 300],
 };
 
+const DEFAULT_REALM_CELL_SETTINGS = {
+  炼气: { min: 10, max: 60, peak: 40, spread: 1.5 },
+  筑基: { min: 20, max: 80, peak: 50, spread: 1.5 },
+  结丹: { min: 30, max: 100, peak: 60, spread: 1.5 },
+  元婴: { min: 40, max: 120, peak: 80, spread: 1.5 },
+  化神: { min: 50, max: 150, peak: 100, spread: 1.5 },
+  炼虚: { min: 60, max: 200, peak: 120, spread: 1.5 },
+  合体: { min: 70, max: 250, peak: 140, spread: 1.5 },
+  大乘: { min: 80, max: 300, peak: 150, spread: 1.5 },
+};
+
+const DEFAULT_QUALITY_PROBABILITY = {
+  凡: 20,
+  黄: 20,
+  玄: 20,
+  地: 15,
+  天: 15,
+  圣: 10,
+};
+
+const DEFAULT_PRICE_PREFERENCE = {
+  mode: "amount",
+  amountMidpoint: 200000,
+  amountDecay: 0.5,
+  rankMidpoint: 320,
+  rankDecay: 10,
+};
+
+const DEFAULT_SHAPE_WEIGHTS = Object.fromEntries(
+  Array.from({ length: 10 }, (_, h) =>
+    Array.from({ length: 10 }, (_, w) => [`${w + 1}x${h + 1}`, 1.0])
+  ).flat()
+);
+
 const DEFAULT_SETTINGS = {
   roomName: "",
   maxPlayers: 6,
@@ -221,6 +255,10 @@ const DEFAULT_SETTINGS = {
     合体: 10,
     大乘: 5,
   },
+  realmCellSettings: DEFAULT_REALM_CELL_SETTINGS,
+  qualityProbability: DEFAULT_QUALITY_PROBABILITY,
+  pricePreference: DEFAULT_PRICE_PREFERENCE,
+  shapeWeights: DEFAULT_SHAPE_WEIGHTS,
 };
 
 const SHAPES = [
@@ -340,6 +378,100 @@ function normalizeMultipliers(value, fallback = DEFAULT_SETTINGS.multipliers) {
   return parsed;
 }
 
+function normalizeRealmProbability(value, fallback = DEFAULT_SETTINGS.realmProbability) {
+  const realms = Object.keys(fallback);
+  if (!value || typeof value !== "object") return { ...fallback };
+  const next = {};
+  let sum = 0;
+  realms.forEach((realm) => {
+    const raw = Number(value[realm]);
+    const safe = Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : Number(fallback[realm] || 0);
+    next[realm] = safe;
+    sum += safe;
+  });
+  if (sum !== 100) return { ...fallback };
+  return next;
+}
+
+function normalizeRealmCellSettings(value, fallback = DEFAULT_SETTINGS.realmCellSettings) {
+  const realms = Object.keys(fallback);
+  if (!value || typeof value !== "object") {
+    return JSON.parse(JSON.stringify(fallback));
+  }
+  const next = {};
+  realms.forEach((realm) => {
+    const raw = value[realm] || {};
+    const base = fallback[realm];
+    const min = Number.isFinite(Number(raw.min)) ? Math.max(1, Math.floor(Number(raw.min))) : base.min;
+    const max = Number.isFinite(Number(raw.max)) ? Math.max(min + 2, Math.floor(Number(raw.max))) : base.max;
+    const peakRaw = Number.isFinite(Number(raw.peak)) ? Math.floor(Number(raw.peak)) : base.peak;
+    const peak = Math.max(min + 1, Math.min(max - 1, peakRaw));
+    const spreadRaw = Number.isFinite(Number(raw.spread)) ? Number(raw.spread) : base.spread;
+    const spread = Math.max(0.1, Math.min(3.0, Math.round(spreadRaw * 10) / 10));
+    next[realm] = { min, max, peak, spread };
+  });
+  return next;
+}
+
+function normalizeQualityProbability(value, fallback = DEFAULT_SETTINGS.qualityProbability) {
+  const qualities = Object.keys(fallback);
+  if (!value || typeof value !== "object") return { ...fallback };
+  const next = {};
+  let sum = 0;
+  qualities.forEach((quality) => {
+    const raw = Number(value[quality]);
+    const safe = Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : Number(fallback[quality] || 0);
+    next[quality] = safe;
+    sum += safe;
+  });
+  if (sum !== 100) return { ...fallback };
+  return next;
+}
+
+function normalizePricePreference(value, fallback = DEFAULT_SETTINGS.pricePreference) {
+  if (!value || typeof value !== "object") return { ...fallback };
+  const mode = value.mode === "rank" ? "rank" : "amount";
+  const amountMidpointRaw = Number(value.amountMidpoint);
+  const amountDecayRaw = Number(value.amountDecay);
+  const rankMidpointRaw = Number(value.rankMidpoint);
+  const rankDecayRaw = Number(value.rankDecay);
+  return {
+    mode,
+    amountMidpoint: Number.isFinite(amountMidpointRaw) ? Math.max(1, Math.min(10000000, Math.round(amountMidpointRaw))) : fallback.amountMidpoint,
+    amountDecay: Number.isFinite(amountDecayRaw) ? Math.max(0.1, Math.min(10, Math.round(amountDecayRaw * 10) / 10)) : fallback.amountDecay,
+    rankMidpoint: Number.isFinite(rankMidpointRaw) ? Math.max(1, Math.min(400, Math.round(rankMidpointRaw))) : fallback.rankMidpoint,
+    rankDecay: Number.isFinite(rankDecayRaw) ? Math.max(0.1, Math.min(10, Math.round(rankDecayRaw * 10) / 10)) : fallback.rankDecay,
+  };
+}
+
+function normalizeShapeWeights(value, fallback = DEFAULT_SETTINGS.shapeWeights) {
+  const next = { ...fallback };
+  if (!value || typeof value !== "object") return next;
+  Object.keys(next).forEach((shape) => {
+    const raw = Number(value[shape]);
+    next[shape] = Number.isFinite(raw) ? Math.max(0, Math.min(9.9, Math.round(raw * 10) / 10)) : next[shape];
+  });
+  return next;
+}
+
+function sampleGaussian(rng) {
+  let u = 0;
+  let v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function sampleTruncatedNormalInt(min, max, mean, spread, rng) {
+  const nearestBoundaryDistance = Math.min(Math.max(1, mean - min), Math.max(1, max - mean));
+  const stdDev = Math.max(1, nearestBoundaryDistance / Math.max(0.1, spread || 1));
+  for (let i = 0; i < 24; i += 1) {
+    const sample = mean + sampleGaussian(rng) * stdDev;
+    if (sample >= min && sample <= max) return Math.round(sample);
+  }
+  return Math.max(min, Math.min(max, Math.round(mean)));
+}
+
 function getRoomRoleSelectionMap(room) {
   const map = {};
   room.players.forEach((player) => {
@@ -392,10 +524,9 @@ function chooseRealm(prob, rng) {
   return pickWeighted(list, rng);
 }
 
-function generateTargetCells(realm, rng) {
-  const [min, max] = REALM_RANGE[realm];
-  const tail = Math.pow(rng(), 2.8);
-  return min + Math.floor((max - min) * tail);
+function generateTargetCells(realm, rng, realmCellSettings = DEFAULT_SETTINGS.realmCellSettings) {
+  const setting = realmCellSettings?.[realm] || DEFAULT_REALM_CELL_SETTINGS[realm] || { min: 10, max: 60, peak: 40, spread: 1.5 };
+  return sampleTruncatedNormalInt(setting.min, setting.max, setting.peak, setting.spread, rng);
 }
 
 function canPlace(grid, x, y, w, h) {
@@ -416,10 +547,85 @@ function placeOnGrid(grid, itemId, x, y, w, h) {
   }
 }
 
+function isCellWithinTarget(x, y, target) {
+  const index = y * GRID_W + x;
+  return index < target;
+}
+
+function canPlaceWithinTarget(grid, x, y, w, h, target) {
+  if (x + w > GRID_W || y + h > GRID_H) return false;
+  for (let dy = 0; dy < h; dy += 1) {
+    for (let dx = 0; dx < w; dx += 1) {
+      const cx = x + dx;
+      const cy = y + dy;
+      if (!isCellWithinTarget(cx, cy, target)) return false;
+      if (grid[cy][cx]) return false;
+    }
+  }
+  return true;
+}
+
+function findFirstEmptyWithinTarget(grid, target) {
+  const fullRows = Math.floor(target / GRID_W);
+  const tail = target % GRID_W;
+  for (let y = 0; y < fullRows; y += 1) {
+    for (let x = 0; x < GRID_W; x += 1) {
+      if (!grid[y][x]) return { x, y };
+    }
+  }
+  if (tail > 0) {
+    for (let x = 0; x < tail; x += 1) {
+      if (!grid[fullRows][x]) return { x, y: fullRows };
+    }
+  }
+  return null;
+}
+
+function pickCatalogCandidate(catalog, remain, rng, settings) {
+  const candidates = catalog.filter((item) => item.size <= remain);
+  if (!candidates.length) return null;
+  const weighted = candidates.map((item) => ({
+    value: item,
+    weight:
+      Math.max(0.01, getQualityProbabilityWeight(item, settings)) *
+      Math.max(0.0001, getPricePreferenceWeight(item, settings)) *
+      Math.max(0.0001, getShapeWeight(item, settings)),
+  }));
+  return pickWeighted(weighted, rng);
+}
+
 const QUALITY_ORDER = ["凡", "黄", "玄", "地", "天", "圣"];
+
+const SORTED_PRICE_ITEMS = [...ITEM_CATALOG].sort((a, b) => a.price - b.price || a.id.localeCompare(b.id));
+const PRICE_RANK_BY_ID = Object.fromEntries(SORTED_PRICE_ITEMS.map((item, index) => [item.id, index + 1]));
 
 function itemQualityRank(item) {
   return QUALITY_ORDER.indexOf(item.quality);
+}
+
+function getQualityProbabilityWeight(item, settings) {
+  const prob = settings?.qualityProbability?.[item.quality];
+  return Math.max(0.01, Number.isFinite(prob) ? prob : DEFAULT_QUALITY_PROBABILITY[item.quality] || 1);
+}
+
+function getPricePreferenceWeight(item, settings) {
+  const pref = normalizePricePreference(settings?.pricePreference, DEFAULT_PRICE_PREFERENCE);
+  if (pref.mode === "rank") {
+    const rank = Math.max(1, Math.min(400, PRICE_RANK_BY_ID[item.id] || 1));
+    const midpoint = Math.max(1, pref.rankMidpoint || DEFAULT_PRICE_PREFERENCE.rankMidpoint);
+    const decay = Math.max(0.1, pref.rankDecay || DEFAULT_PRICE_PREFERENCE.rankDecay);
+    return 1 / (1 + Math.pow(rank / midpoint, decay));
+  }
+  const price = Math.max(0, item.price || 0);
+  const midpoint = Math.max(1, pref.amountMidpoint || DEFAULT_PRICE_PREFERENCE.amountMidpoint);
+  const decay = Math.max(0.1, pref.amountDecay || DEFAULT_PRICE_PREFERENCE.amountDecay);
+  return 1 / (1 + Math.pow(price / midpoint, decay));
+}
+
+function getShapeWeight(item, settings) {
+  const shape = `${item.width}x${item.height}`;
+  const raw = settings?.shapeWeights?.[shape];
+  return Number.isFinite(raw) ? Math.max(0, raw) : DEFAULT_SHAPE_WEIGHTS[shape] || 1;
 }
 
 function uniquePush(list, value) {
@@ -844,56 +1050,56 @@ function createRound(room, gameId, roundNo) {
   const seed = hashSeed(`${gameId}_round_${roundNo}`);
   const rng = createRng(seed);
   const realm = chooseRealm(room.settings.realmProbability, rng);
-  const target = generateTargetCells(realm, rng);
+  const target = generateTargetCells(realm, rng, room.settings.realmCellSettings);
   const grid = Array.from({ length: GRID_H }, () => Array.from({ length: GRID_W }, () => null));
   const placedItems = [];
+  const waitingPool = [];
   let usedCells = 0;
   let guard = 0;
 
-  while (usedCells < target && guard < 3000) {
+  while (usedCells < target && guard < 5000) {
     guard += 1;
     const remain = target - usedCells;
-
-    let firstEmpty = null;
-    for (let y = 0; y < GRID_H && !firstEmpty; y += 1) {
-      for (let x = 0; x < GRID_W; x += 1) {
-        if (!grid[y][x]) {
-          firstEmpty = { x, y };
-          break;
-        }
-      }
-    }
+    const firstEmpty = findFirstEmptyWithinTarget(grid, target);
     if (!firstEmpty) break;
 
-    const fitCandidates = ITEM_CATALOG.filter((item) => {
-      if (item.size > remain) return false;
-      return canPlace(grid, firstEmpty.x, firstEmpty.y, item.width, item.height);
-    });
+    let picked = null;
+    let poolIndex = -1;
 
-    if (!fitCandidates.length) {
-      let filled = false;
-      const singles = ITEM_CATALOG.filter((item) => item.width === 1 && item.height === 1 && item.size <= remain);
-      if (singles.length && canPlace(grid, firstEmpty.x, firstEmpty.y, 1, 1)) {
-        const picked = singles[Math.floor(rng() * singles.length)];
-        const placedId = `ri_${roundNo}_${placedItems.length}_${picked.id}`;
-        placeOnGrid(grid, placedId, firstEmpty.x, firstEmpty.y, 1, 1);
-        placedItems.push({ ...picked, placedId, x: firstEmpty.x, y: firstEmpty.y });
-        usedCells += picked.size;
-        filled = true;
-      }
-      if (!filled) {
+    for (let i = 0; i < waitingPool.length; i += 1) {
+      const candidate = waitingPool[i];
+      if (candidate.size <= remain && canPlaceWithinTarget(grid, firstEmpty.x, firstEmpty.y, candidate.width, candidate.height, target)) {
+        picked = candidate;
+        poolIndex = i;
         break;
       }
-      continue;
     }
 
-    const weighted = fitCandidates.map((item) => {
-      const smallBonus = 1 / Math.max(1, item.size);
-      const exactFitBonus = item.size === remain ? 2.4 : 1;
-      const shortEdgeBonus = item.width <= 2 || item.height <= 2 ? 1.25 : 1;
-      return { item, weight: (smallBonus * 10 + shortEdgeBonus) * exactFitBonus };
-    });
-    const picked = pickWeighted(weighted.map((w) => ({ value: w.item, weight: w.weight })), rng);
+    if (picked) {
+      waitingPool.splice(poolIndex, 1);
+    } else {
+      let attempts = 0;
+      while (attempts < 12 && !picked) {
+        attempts += 1;
+        const sampled = pickCatalogCandidate(ITEM_CATALOG, remain, rng, room.settings);
+        if (!sampled) break;
+        if (canPlaceWithinTarget(grid, firstEmpty.x, firstEmpty.y, sampled.width, sampled.height, target)) {
+          picked = sampled;
+          break;
+        }
+        waitingPool.push(sampled);
+      }
+    }
+
+    if (!picked) {
+      const fallbackCandidates = ITEM_CATALOG.filter((item) => item.width === 1 && item.height === 1);
+      const fallback = fallbackCandidates.length ? pickCatalogCandidate(fallbackCandidates, remain, rng, room.settings) : null;
+      if (!fallback || !canPlaceWithinTarget(grid, firstEmpty.x, firstEmpty.y, 1, 1, target)) {
+        break;
+      }
+      picked = fallback;
+    }
+
     const placedId = `ri_${roundNo}_${placedItems.length}_${picked.id}`;
     placeOnGrid(grid, placedId, firstEmpty.x, firstEmpty.y, picked.width, picked.height);
     placedItems.push({ ...picked, placedId, x: firstEmpty.x, y: firstEmpty.y });
@@ -1826,7 +2032,8 @@ function roomSummary(room) {
     roomId: room.id,
     roomName: room.settings.roomName || "",
     ownerName: room.players.find((p) => p.id === room.ownerId)?.name || "无",
-    playerCount: room.players.filter((p) => p.connected || !p.managed).length,
+    playerCount: room.players.length,
+    onlinePlayerCount: room.players.filter((p) => p.connected).length,
     maxPlayers: room.settings.maxPlayers,
     hasPassword: Boolean(room.settings.password),
     phase: room.phase,
@@ -2103,6 +2310,10 @@ io.on("connection", (socket) => {
         password: payload?.password || "",
         hintRounds: normalizeHintRounds(payload?.hintRounds, DEFAULT_SETTINGS.hintRounds),
         multipliers: normalizeMultipliers(payload?.multipliers, DEFAULT_SETTINGS.multipliers),
+        realmCellSettings: normalizeRealmCellSettings(payload?.realmCellSettings, DEFAULT_SETTINGS.realmCellSettings),
+        qualityProbability: normalizeQualityProbability(payload?.qualityProbability, DEFAULT_SETTINGS.qualityProbability),
+        pricePreference: normalizePricePreference(payload?.pricePreference, DEFAULT_SETTINGS.pricePreference),
+        shapeWeights: normalizeShapeWeights(payload?.shapeWeights, DEFAULT_SETTINGS.shapeWeights),
         allowDuplicateRoles: DEFAULT_SETTINGS.allowDuplicateRoles,
         showOtherSpiritStone: typeof payload?.showOtherSpiritStone === "boolean" ? payload.showOtherSpiritStone : DEFAULT_SETTINGS.showOtherSpiritStone,
         revealBidDisplay: payload?.revealBidDisplay === "rank" ? "rank" : DEFAULT_SETTINGS.revealBidDisplay,
@@ -2202,6 +2413,11 @@ io.on("connection", (socket) => {
       maxPlayers: clampMaxPlayers(payload?.maxPlayers ?? room.settings.maxPlayers),
       hintRounds: normalizeHintRounds(payload?.hintRounds, room.settings.hintRounds),
       multipliers: normalizeMultipliers(payload?.multipliers, room.settings.multipliers),
+      realmProbability: normalizeRealmProbability(payload?.realmProbability, room.settings.realmProbability),
+      realmCellSettings: normalizeRealmCellSettings(payload?.realmCellSettings, room.settings.realmCellSettings),
+      qualityProbability: normalizeQualityProbability(payload?.qualityProbability, room.settings.qualityProbability),
+      pricePreference: normalizePricePreference(payload?.pricePreference, room.settings.pricePreference),
+      shapeWeights: normalizeShapeWeights(payload?.shapeWeights, room.settings.shapeWeights),
       totalRounds: Number(payload?.totalRounds || room.settings.totalRounds),
       initialSpiritStone: Number(payload?.initialSpiritStone || room.settings.initialSpiritStone),
       entryFee: Number(payload?.entryFee || room.settings.entryFee),

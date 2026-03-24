@@ -17,377 +17,450 @@ export const ITEM_SHAPES = Array.from({ length: 10 }, (_, x) =>
   Array.from({ length: 10 }, (_, y) => `${x + 1}x${y + 1}`),
 ).flat();
 
-// 类别对应关系（固定）
-// 阵法 -> 阵法
-// 典籍 -> 杂项
-// 符箓 -> 符箓
-// 丹药 -> 丹药
-// 法器 -> 武器
-// 法宝 -> 武器
-// 功法神通 -> 功法
-//
-// 以后新增物品时，直接照着 createItem({...}) 复制一行即可。
-// 只需要填写：id、name、price、width、height、quality、type、desc
+const parseShape = (shape) => {
+  const [width, height] = shape.split("x").map(Number);
+  return { width, height };
+};
 
-const createItem = ({ id, name, price, width, height, quality, type, desc }) => ({
-  id,
-  name,
-  price,
-  width,
-  height,
-  size: width * height,
-  shape: `${width}x${height}`,
-  quality,
-  type,
-  desc,
-});
+const createItem = ({ id, type, name, quality, shape, price, desc }) => {
+  const { width, height } = parseShape(shape);
+  return {
+    id,
+    name,
+    price: Number(price),
+    width,
+    height,
+    size: width * height,
+    shape,
+    quality,
+    type,
+    desc,
+  };
+};
 
-export const ITEM_CATALOG = [
-  // ==================== 功法神通 -> 功法 ====================
-  createItem({ id: "gf_001", name: "正阳劲", price: 60, width: 1, height: 1, quality: "凡", type: "功法", desc: "七玄门的基本内功。" }),
-  createItem({ id: "gf_002", name: "象甲功", price: 320, width: 1, height: 2, quality: "凡", type: "功法", desc: "分为九层，后期修炼者刀枪不入。" }),
-  createItem({ id: "gf_003", name: "眨眼剑法", price: 320, width: 1, height: 2, quality: "凡", type: "功法", desc: "利用各种光线和视觉错误制敌的刺杀秘术。" }),
-  createItem({ id: "gf_004", name: "罗烟步", price: 280, width: 1, height: 2, quality: "凡", type: "功法", desc: "轻功，耗费体力，速度极快。" }),
-  createItem({ id: "gf_005", name: "龟息功", price: 450, width: 1, height: 2, quality: "黄", type: "功法", desc: "可让气息、心跳降低到极点，进入假死状态。" }),
-  createItem({ id: "gf_006", name: "长春功", price: 1800, width: 2, height: 3, quality: "玄", type: "功法", desc: "木属性基础功法，共十三层，包含多种基础法术。" }),
-  createItem({ id: "gf_007", name: "火弹术", price: 90, width: 1, height: 1, quality: "凡", type: "功法", desc: "基础法术，高温破坏力强。" }),
-  createItem({ id: "gf_008", name: "天眼术", price: 120, width: 1, height: 1, quality: "凡", type: "功法", desc: "基础法术，可观察修为。" }),
-  createItem({ id: "gf_009", name: "御风诀", price: 110, width: 1, height: 1, quality: "凡", type: "功法", desc: "基础法术，可增强跳跃与腾挪能力。" }),
-  createItem({ id: "gf_010", name: "敛气术", price: 180, width: 1, height: 1, quality: "黄", type: "功法", desc: "隐匿自身气息的法术。" }),
-  createItem({ id: "gf_011", name: "青元剑诀", price: 98000, width: 4, height: 5, quality: "天", type: "功法", desc: "玄剑门镇派绝学，包含青元剑芒、护体剑盾、剑影分光术、大庚剑阵、春黎剑阵、青蟠剑阵等。" }),
-  createItem({ id: "gf_012", name: "大衍诀", price: 82000, width: 3, height: 4, quality: "天", type: "功法", desc: "大衍神君自创秘术，共七层，专门强大神识、修炼分神之术。" }),
-  createItem({ id: "gf_013", name: "三转重元功", price: 36000, width: 3, height: 3, quality: "地", type: "功法", desc: "三次散功压缩真元，可增加结丹几率。" }),
-  createItem({ id: "gf_014", name: "素女轮回功", price: 18000, width: 2, height: 3, quality: "地", type: "功法", desc: "可让人春颜永驻，每隔数十年轮回一次。" }),
-  createItem({ id: "gf_015", name: "轮回真决", price: 26000, width: 2, height: 3, quality: "地", type: "功法", desc: "南宫婉功法，可以吸取他人修为。" }),
-  createItem({ id: "gf_016", name: "玄阴经", price: 58000, width: 3, height: 4, quality: "天", type: "功法", desc: "集合了玄骨创造的强悍秘技。" }),
-  createItem({ id: "gf_017", name: "托天魔功", price: 42000, width: 3, height: 4, quality: "天", type: "功法", desc: "乱星海防御第一魔功，运行时浑身长满金色鳞片。" }),
-  createItem({ id: "gf_018", name: "梵圣真魔功", price: 98000, width: 4, height: 5, quality: "天", type: "功法", desc: "结合明王诀与托天魔功的高级功法。" }),
-  createItem({ id: "gf_019", name: "血影遁", price: 24000, width: 2, height: 2, quality: "地", type: "功法", desc: "借助精血力量瞬间逃匿百里之外的诡异遁术。" }),
-  createItem({ id: "gf_020", name: "疾风九变", price: 16000, width: 2, height: 2, quality: "玄", type: "功法", desc: "妖族功法，禽类妖兽修炼。" }),
-  createItem({ id: "gf_021", name: "明王诀", price: 56000, width: 3, height: 4, quality: "天", type: "功法", desc: "佛门顶阶功法，注重修炼法体。" }),
-  createItem({ id: "gf_022", name: "元磁神光", price: 128000, width: 4, height: 4, quality: "圣", type: "功法", desc: "乱星海顶级功法，号称克尽天下五行。" }),
-  createItem({ id: "gf_023", name: "四煞化甲术", price: 26000, width: 2, height: 3, quality: "地", type: "功法", desc: "凝结煞气为甲的护身秘术。" }),
-  createItem({ id: "gf_024", name: "祭雷术", price: 28000, width: 2, height: 3, quality: "地", type: "功法", desc: "专门驱动辟邪神雷的雷系秘术。" }),
-  createItem({ id: "gf_025", name: "灵漩邪光", price: 36000, width: 3, height: 3, quality: "地", type: "功法", desc: "可反弹攻击并一定程度无视禁制的诡异神通。" }),
-  createItem({ id: "gf_026", name: "玄天炼器术", price: 62000, width: 3, height: 4, quality: "天", type: "功法", desc: "炼制顶级法宝的高深法门。" }),
-  createItem({ id: "gf_027", name: "乾蓝冰焰", price: 38000, width: 3, height: 3, quality: "地", type: "功法", desc: "小极宫三大寒焰之一，至阴至寒。" }),
-  createItem({ id: "gf_028", name: "黑水冰焰", price: 26000, width: 2, height: 3, quality: "地", type: "功法", desc: "小极宫三大寒焰之一。" }),
-  createItem({ id: "gf_029", name: "风离冰焰", price: 26000, width: 2, height: 3, quality: "地", type: "功法", desc: "小极宫三大寒焰之一。" }),
-  createItem({ id: "gf_030", name: "缩地术", price: 42000, width: 2, height: 3, quality: "天", type: "功法", desc: "元婴后期修士掌握的高阶遁术。" }),
-  createItem({ id: "gf_031", name: "逆灵归元决", price: 36000, width: 3, height: 3, quality: "地", type: "功法", desc: "后天培养本命云兽的秘法。" }),
-  createItem({ id: "gf_032", name: "太乙青光", price: 46000, width: 3, height: 3, quality: "天", type: "功法", desc: "天然形成的犀利青光。" }),
-  createItem({ id: "gf_033", name: "炼神术", price: 140000, width: 4, height: 5, quality: "圣", type: "功法", desc: "增加神识的真仙界禁术。" }),
-  createItem({ id: "gf_034", name: "七鬼噬魂大法", price: 18000, width: 2, height: 3, quality: "地", type: "功法", desc: "以身饲鬼，换取暂时法力。" }),
-  createItem({ id: "gf_035", name: "血箭阴魂咒", price: 7200, width: 2, height: 2, quality: "玄", type: "功法", desc: "诅咒使人衰老。" }),
-  createItem({ id: "gf_036", name: "控神术", price: 3200, width: 2, height: 2, quality: "玄", type: "功法", desc: "控制凡人服从命令。" }),
-  createItem({ id: "gf_037", name: "土牢术", price: 2600, width: 2, height: 2, quality: "玄", type: "功法", desc: "困敌法术。" }),
+const RAW_ITEMS = `
+功法	基础引气诀	凡	1x2	160	散修入门最常用的引气口诀
+功法	闭气潜行法	凡	1x2	300	短时间内屏住呼吸，降低存在感
+功法	碎石拳法	凡	1x2	380	粗浅的近战外功，威力平平
+功法	长春功	凡	1x2	460	中规中矩的木系功法，胜在平稳
+功法	灵目术	凡	1x2	490	消耗少量灵气察觉周围灵气波动
+功法	铁布衫	凡	1x2	560	凡间流传极广的横练硬功
+功法	纳气十三篇	凡	1x2	620	包含十三个基础纳气动作的册子
+功法	弄火诀	凡	1x2	730	只能变出小火苗的基础火系法术
+功法	驭物散手	凡	1x2	820	简单的御物技巧，可搬运轻型物品
+功法	清心咒	凡	1x2	930	消除浮躁、辅助入定的基础咒文
+功法	狂血术	黄	1x2	550	燃烧气血短时间提升爆发力
+功法	归元经	黄	1x2	900	较完整的炼气功法，回气速度快
+功法	破空指	黄	1x2	1050	凝聚灵力于指尖发出的破甲一击
+功法	缩地术·残卷	黄	3x1	1500	借土遁之势瞬间位移一小段距离
+功法	烈阳剑诀	黄	2x3	1800	附带灼烧效果的入门剑修功法
+功法	水箭千叠	黄	2x3	2050	可连续发射三道水箭攻击敌人
+功法	纸鹤传音录	黄	1x2	2400	驱动灵气纸鹤进行中距离传讯
+功法	磐石盾术	黄	2x3	2850	召唤一面坚固的石盾抵挡攻击
+功法	敛息诀	黄	1x2	3400	完美隐藏练气期修仙者的修为
+功法	百毒经	黄	2x3	4150	记载了数十种基础毒药的炼制与用法
+功法	紫微炼气纲要	玄	2x3	4500	某些二流宗门的核心修炼指南
+功法	替身草人法	玄	2x3	5150	关键时刻消耗草人抵挡一次致命伤
+功法	唤雨术	玄	1x2	5450	改变小范围天象，召唤持续灵雨
+功法	青帝长生功	玄	2x3	5600	极佳的木属性功法，擅长自愈
+功法	奔雷枪法	玄	2x3	5950	枪势如雷，带有麻痹属性的攻击
+功法	搜魂秘术	玄	3x1	6450	强行读取修为低于自己者的记忆
+功法	万剑归宗·伪	玄	3x2	6950	虽非真传，但可御使数十把飞剑
+功法	幻影步	玄	1x2	7300	移动时留下数道足以乱真的残影
+功法	冥火之矛	玄	3x1	7650	凝聚幽冥之火，攻击神魂
+功法	御兽真诀	玄	3x2	8250	记载了契约与统御妖兽的系统方法
+功法	焚天真经	地	3x2	8750	威能强大的火系顶阶功法
+功法	掌中乾坤	地	3x2	9400	小空间封禁之法，可困住同级对手
+功法	夺舍再生法	地	3x1	9850	仅限神魂状态下使用的保命夺舍术
+功法	天罡地煞阵法图录	地	4x4	11500	详尽记载了地级阵法的布置方法
+功法	虚空经·上卷	地	3x3	16000	触及空间法则的高深修炼功法
+功法	雷劫指	地	3x1	18500	模拟天劫之威，对魔道有极强克制
+功法	七星续命灯	地	3x3	22500	极其罕见的通过仪式强行延寿之法
+功法	杀戮剑道	地	3x2	27000	以杀证道的极端剑法，威力绝伦
+功法	法天象地	天	4x4	46000	身体巨化，肉身力量成倍增长
+功法	太极混元真经	天	4x3	54000	调和阴阳，修出的灵力极度精纯
+功法	五行大灭绝神光	天	4x3	72000	刷尽五行之物，恐怖的防御与攻击
+功法	大悲涅槃经	天	4x3	78000	佛门至高功法，拥有极强的复生力
+功法	斩仙葫芦祭练法	天	3x1	94000	专门针对仙人神魂的法宝秘术
+功法	岁月逆流	天	5x5	130000	极其短暂地令局部时间回溯
+功法	天书残卷·叁	天	2x3	165000	传闻中记载了成仙奥秘的残篇
+功法	鸿蒙初开经	天	5x5	200000	伴随世界诞生的经文，石碑形态
+功法	轮回转生术	天	4x4	250000	带着记忆与修为直接转世的终极禁术
+功法	混沌造化功	圣	4x4	750000	修炼出混沌之气，凌驾于五行之上
+功法	言出法随	圣	3x3	950000	以言语沟通天道，瞬间改变现实法则
+功法	永恒不灭识	圣	3x3	4000000	记载于虚空陨石上的终极神魂不灭法
+丹药	辟谷丹	凡	1x1	100	服用一颗可三日不进五谷
+丹药	止血散	凡	1x1	190	凡间常见的伤药，外敷可止血
+丹药	稀释清泉	凡	1x2	260	蕴含极少量灵气的水，口感甘甜
+丹药	聚气丸	凡	2x2	360	辅助练气初期的基础丹药
+丹药	强身丸	凡	2x2	440	增加些许肉身力气，凡人武夫常用
+丹药	活络膏	凡	2x1	510	疏通经络，缓解修炼产生的肌肉酸痛
+丹药	定惊丸	凡	2x2	630	平复心境，减少练气时的杂念
+丹药	灵蜂蜂蜜	凡	1x2	760	野生灵蜂产出的蜜，可小幅回气
+丹药	祛毒粉	凡	1x1	860	针对普通蛇虫毒素有奇效
+丹药	壮骨丹	凡	1x1	940	强化骨骼硬度，为筑基打下基础
+丹药	补灵丹	黄	1x1	500	快速恢复练气期修士的灵气消耗
+丹药	筑基丹·劣	黄	2x2	850	增加筑基成功率，但存在丹毒风险
+丹药	百花灵露	黄	1x2	1100	采集百花精华，极受女性修士欢迎
+丹药	益神丹	黄	1x1	1650	滋养神魂，微幅提升感知范围
+丹药	黑玉断续膏	黄	2x1	2100	治疗骨裂折断的圣药
+丹药	避毒丹	黄	1x1	2650	服用后可抵御瘴气林中的普通毒素
+丹药	寒潭精露	黄	1x2	2900	冰属性灵液，可压制体内火毒
+丹药	焚心丸	黄	2x2	3200	强行激发潜力，服用后会有虚弱期
+丹药	固元丹	黄	1x1	3450	稳固修为境界，防止气息虚浮
+丹药	愈灵凝胶	黄	2x1	4250	蕴含灵力的药膏，可修复深层创伤
+丹药	凝元丹	玄	1x1	4000	帮助液态灵力凝练，筑基期核心丹药
+丹药	翠岩浆	玄	1x2	4550	地底石缝中渗出的灵浆，大补土气
+丹药	破障丹	玄	1x1	5200	冲刺小瓶颈时使用的辅助丹药
+丹药	离火液	玄	1x2	5650	浓缩火属性精华，炼器师常备
+丹药	虎骨壮体丸	玄	2x2	6000	以妖兽骨骼炼制，极大幅强化体质
+丹药	幻心丹	玄	1x1	6500	服用后进入幻境，磨炼心神意志
+丹药	飞羽粉	玄	1x1	6750	涂抹于脚部，极大幅提升移动速度
+丹药	敛息丹	玄	1x1	7150	彻底遮蔽全身灵压，持续一个时辰
+丹药	三转回阳丹	玄	2x2	7750	只要还有一口气在，便能吊住性命
+丹药	降尘丹	玄	1x1	8450	结丹前夕必备，增加结丹三成几率
+丹药	结金丹	地	1x1	8000	辅助碎基成丹的顶级灵药
+丹药	万年钟乳液	地	1x3	8550	一滴即可瞬间补满结丹期全身灵力
+丹药	涤髓液	地	1x2	8850	洗筋伐髓，微幅永久提升修炼潜质
+丹药	降魔镇心丸	地	2x2	9300	抵御心魔入侵，元婴期渡劫辅助
+丹药	庚金精气	地	1x1	9700	纯粹的金属性能量，强化本命法宝
+丹药	九幽断肠丹	地	1x1	10500	剧毒之物，元婴之下触之即化
+丹药	续脉圣灵膏	地	2x2	14500	即使经脉全断亦能重塑的昂贵药膏
+丹药	化元保命丹	地	2x2	19000	受到致命伤时自动激发，护住元神
+丹药	瑶池圣水·次级	地	1x3	24500	拥有极强的净化能力，去腐生肌
+丹药	化神丹	天	2x2	25000	修士晋升化神期的入场券
+丹药	涅槃丹	天	2x2	34000	模拟凤凰涅槃，肉身毁后可重塑
+丹药	乾坤造化丸	天	2x2	39000	蕴含一丝空间之力，辅助领悟瞬移
+丹药	悟道茶浓缩液	天	1x1	48000	进入深度悟道状态，领悟法则之力
+丹药	寿元果丹	天	1x1	62000	延寿五百载，寿元将近者的圣物
+丹药	天劫雷液	天	1x3	80000	收集雷劫精华而成，淬炼法相
+丹药	飞升接引丹	天	1x1	150000	感受上界气息，降低飞升雷劫威力
+丹药	九转还魂丹	圣	2x2	275000	只要神魂不散，皆可重聚复生
+丹药	鸿蒙造化金丹	圣	2x2	350000	蕴含鸿蒙初开之气，改天换地之能
+丹药	永恒长生液	圣	1x2	450000	传说可让人获得不朽物质，与天同寿
+丹药	混沌无极丹	圣	1x1	2000000	丹成时引发天地异象，吞噬可成圣
+武器	精铁剑	凡	1x3	110	凡间铁匠铺打造的制式长剑
+武器	猎户硬弓	凡	2x3	230	涂抹了微量驱兽粉的木弓
+武器	镔铁齐眉棍	凡	1x4	310	沉重结实，适合初学者练力
+武器	淬毒匕首	凡	1x2	410	刃部涂有见血封喉的凡俗毒药
+武器	护心圆盾	凡	2x2	470	蒙有厚牛皮的铁盾，防御力尚可
+武器	青铜小鼎	凡	2x2	580	勉强能承载地火的入门级炼器鼎
+武器	桃木剑	凡	1x3	690	具有微弱辟邪效果的陈年桃木剑
+武器	亮银枪	凡	1x5	780	枪头掺入少量秘银，导灵性佳
+武器	缠丝手套	凡	2x1	870	保护双手，可空手接白刃
+武器	斩马重刀	凡	1x4	1400	势大力沉，练气期体修心头好
+武器	流火剑	黄	1x3	600	剑身常年微热，挥砍带出火星
+武器	追风弩	黄	2x2	980	刻有疾风纹路，箭矢速度极快
+武器	厚土盾	黄	3x3	1550	注入灵力可产生一层石质护甲
+武器	寒冰刺	黄	1x2	2000	击中后可减缓敌人的移动速度
+武器	虎头湛金枪	黄	1x5	2450	以二级妖兽金虎脊骨炼制而成
+武器	缠魂丝	黄	2x1	2950	极细的透明丝线，擅长束缚困敌
+武器	镇妖铃	黄	2x2	3300	摇动时发出的频率令妖兽焦躁不安
+武器	破阵钉	黄	1x1	3500	专门针对薄弱禁制的消耗性法器
+武器	烈阳弓	黄	2x3	3850	射出的箭矢附带强烈的灼烧效果
+武器	墨蛟剪	黄	2x2	4450	剪身形似两条墨蛟缠绕，威力惊人
+武器	青罡飞剑	玄	1x3	4300	结丹期修士常用的标准飞行利刃
+武器	掩日神弩	玄	2x3	5250	蓄力时间长，但具备远程重型破甲能力
+武器	离火神罩	玄	3x3	5700	攻守兼备，可释放火网困住敌人
+武器	奔雷印	玄	2x2	6050	祭出后化作巨印砸下，伴随雷鸣
+武器	夺命透骨针	玄	1x1	6550	极难察觉的神魂类穿刺法宝
+武器	斩灵大刀	玄	1x4	6800	刀气纵横，可轻易斩断同阶法器
+武器	翡翠琵琶	玄	2x3	7200	音波功专用，伤人于无形之中
+武器	五毒神砂	玄	1x1	7550	撒出后形成大片毒雾，腐蚀灵盾
+武器	碧波镇海鼎	玄	3x3	7800	沉重无比，压制力极强的水系鼎
+武器	血魂幡	玄	1x4	8600	吸收生魂炼制，魔气森森，摄人心魄
+武器	紫霄雷鸣剑	地	1x3	8400	采天雷精华入刃，对阴邪物有天克
+武器	翻天印·仿	地	2x2	8950	虽是仿品，亦有崩山裂地之能
+武器	七星断月弩	地	2x3	9450	连发七矢，每箭皆有锁定神魂效果
+武器	乾坤扇	地	2x2	9900	扇面画有河山，挥动间空间震荡
+武器	龙纹盘龙棍	地	1x4	12000	封印了蛟龙精魄，可召唤龙影助战
+武器	琉璃净火瓶	地	2x2	16500	喷吐大片琉璃火，焚毁万物
+武器	阴阳判官笔	地	1x4	19500	一笔判生，一笔定死，极难防御
+武器	万剑图轴	地	4x1	23000	展开后万剑齐发，覆盖面积极广
+武器	裂空战斧	地	3x4	25500	撕开空间缝隙，攻击无视物理护甲
+武器	昊天镜·残	天	2x2	38000	古神镜碎片重铸，洞察世间一切虚妄
+武器	诛仙剑·副剑	天	1x4	60000	充满杀伐之气的绝世凶刃
+武器	虚空梭	天	2x1	70000	穿梭位面壁垒，无视阵法禁制
+武器	混元金斗	天	3x3	82000	装尽世间法宝，落人修为境界
+武器	太阳神针	天	1x1	98000	采太阳真火凝练，见血即化
+武器	九龙神火罩	天	3x3	135000	九条火龙盘绕，焚杀化神期修士
+武器	盘古幡·投影	天	4x6	170000	虽是投影，亦能摇碎虚空，破灭混沌
+武器	斩仙飞刀	圣	2x2	185000	请宝贝转身，瞬移斩杀元神
+武器	轩辕剑	圣	1x5	500000	黄金色之千年古剑，蕴含无穷正气
+武器	混沌钟·残骸	圣	4x4	850000	钟声响起，时间凝固，空间崩碎
+武器	开天神斧	圣	6x4	6000000	鸿蒙第一至宝，拥有重塑宇宙之威
+符箓	止血符	凡	1x3	120	加速凡人伤口愈合的基础符箓
+符箓	清水符	凡	1x3	220	催发后可生成一缸清水
+符箓	照明符	凡	1x3	290	持续发光半个时辰，探洞必备
+符箓	引火符	凡	1x3	370	产生一团凡火，用于生火烧煮
+符箓	疾风符	凡	1x3	450	贴在双腿上，行走速度提升三成
+符箓	隔音符	凡	1x3	570	贴在门窗上，阻隔凡俗噪音干扰
+符箓	辟邪符	凡	1x3	680	震慑弱小孤魂野鬼，驱散阴霾
+符箓	金刚符	凡	1x3	770	赋予身体一层如皮革般的防御力
+符箓	聚灵符	凡	1x3	890	微幅提升周围灵气浓度，加速引气
+符箓	传音符	凡	1x3	1000	录入一段话，可飞往十里内指定目标
+符箓	爆裂火符	黄	1x3	650	命中目标后产生剧烈爆炸
+符箓	护身咒符	黄	1x4	950	自动触发一层厚度均匀的灵气护盾
+符箓	陷地符	黄	1x4	1300	使方圆三丈土地软化如泥淖
+符箓	缠绕符	黄	1x4	1700	催生带刺荆棘束缚敌人双腿
+符箓	迷雾符	黄	1x4	2150	瞬间释放大量浓雾遮蔽方圆五十米
+符箓	冰弹符	黄	1x4	2500	发射三枚寒冰弹，附带迟缓效果
+符箓	雷引符	黄	1x4	3000	牵引微弱雷力攻击，对僵尸有奇效
+符箓	伪装符	黄	2x4	3350	幻化外貌，仅能欺瞒炼气期修士
+符箓	破邪咒符	黄	2x4	3900	专门针对邪修阴气的净化类符箓
+符箓	遁地符	黄	2x4	4600	潜入地底三米，持续时间极短
+符箓	烈焰冲击符	玄	2x4	4200	释放一道扇形的扇形狂暴火柱
+符箓	铁甲咒符	玄	2x4	4650	将皮肤金属化，防御筑基期全力一击
+符箓	聚雨符	玄	1x4	5050	强制改变局部天象，降下一场灵雨
+符箓	缩地符	玄	1x4	5500	瞬间移动到千米之外的随机位置
+符箓	离火符	玄	1x4	6100	召唤永燃不熄的蓝色离火
+符箓	重力符	玄	2x4	6350	增加范围内十倍重力，限制飞行
+符箓	破禁符	玄	2x4	7000	专门中和玄级及以下的阵法壁垒
+符箓	幻影符	玄	1x4	7350	生成三具拥有本体两成气息的幻象
+符箓	搜神符	玄	2x4	7700	锁定千里内残留的气息进行追踪
+符箓	万剑符	玄	2x5	8700	符纸化为百道剑气进行覆盖打击
+符箓	天雷破	地	2x5	8200	引动云层中的紫雷进行定点清除
+符箓	极度深寒符	地	1x5	9050	瞬间冰封方圆百米，生灵寂灭
+符箓	移形换影符	地	4x1	9600	与视线内任何非生命物体交换位置
+符箓	禁空符	地	4x1	9800	强行封锁局部空域，元婴下无法飞行
+符箓	替死符	地	4x1	12500	珍贵无比，可在必死之时抵挡一劫
+符箓	斩仙符·残	地	4x2	17000	蕴含一丝杀伐法则，可伤及化神皮肉
+符箓	七星招魂符	地	1x6	21500	强行拘回刚刚离体的修士残魂
+符箓	山河禁锢符	地	1x6	27500	借大地之势压制对手，使其动弹不得
+符箓	焚天符	地	1x7	40000	召唤地狱黑火，可焚烧虚空与法则
+符箓	九天雷动符	天	1x8	44000	化神期渡劫威力的雷球连续轰击
+符箓	虚空穿梭符	天	4x2	52000	无视空间封锁，跨位面进行传送
+符箓	时光静止符	天	4x2	76000	极其稀有，令局部时间停滞三秒
+符箓	天命增幅符	天	4x2	90000	短时间内强行提升一个大境界修为
+符箓	诛神破天符	天	4x2	110000	针对元神进行毁灭性打击的必杀符
+符箓	乾坤挪移符	天	4x2	140000	挪移一座山岳至指定地点的神通符
+符箓	六道轮回符	天	4x2	175000	将目标神魂打入幻境，经历六道轮回
+符箓	造化神符	圣	4x2	375000	夺天地造化，瞬间修复任何伤势
+符箓	灭世天劫符	圣	2x3	550000	模拟灭世级雷劫，足以摧毁一个帝国
+符箓	因果逆转符	圣	2x3	900000	将受到的伤害转化为对施法者的治疗
+符箓	鸿蒙开天符	圣	2x3	7000000	传闻中可破开混沌、重新演化世界的至强符
+阵法	避雨咒阵	凡	2x1	130	覆盖方圆三丈，使雨水无法落入
+阵法	简易聚灵阵	凡	2x2	270	散修常用的基础聚灵阵，效果微弱
+阵法	锁门禁	凡	2x1	350	防止凡俗小偷撬锁的小型灵气禁制
+阵法	驱虫烟阵	凡	2x2	430	产生令毒虫厌恶的气味，露宿必备
+阵法	固土咒	凡	2x1	480	加固地面，防止挖掘类妖兽偷袭
+阵法	萤火照明阵	凡	2x1	590	吸收日光，在夜间提供微弱照明
+阵法	留音禁制	凡	2x1	710	触碰后会发出响声警报，用于防盗
+阵法	迷踪石阵	凡	3x3	790	简单的土堆石阵，让凡人绕路
+阵法	净水咒印	凡	2x1	880	过滤水源中的杂质与普通毒素
+阵法	基础防御法阵	凡	3x3	1200	能抵挡野兽撞击的简易阵法
+阵法	聚气归元阵	黄	3x3	700	提升练气速度一成的标准型阵盘
+阵法	迷雾禁制	黄	2x1	990	在洞府门口常年维持一股稀薄迷雾
+阵法	烈火灼烧阵	黄	3x3	1750	陷阱类阵法，触碰后喷发高温火焰
+阵法	五行旗·简	黄	1x2	2200	五杆小旗，可布置简易的五行循环
+阵法	禁言咒	黄	2x1	2550	封印目标声音，练气期无法冲破
+阵法	隔灵石室阵	黄	4x2	2750	阻隔灵气外泄，适合秘密修炼
+阵法	飞鸟禁	黄	2x1	3150	阻止低级飞行生物进入特定空域
+阵法	幻岩术阵	黄	3x2	3550	将洞口伪装成普通岩石的幻术阵
+阵法	地刺陷阱阵	黄	3x2	4050	针对脚下的隐蔽式物理穿刺阵法
+阵法	缠绕死咒	黄	2x1	4900	缓慢腐蚀目标经脉的小型歹毒咒术
+阵法	青木长生阵	玄	4x3	4400	持续产生生机，加速药田灵植生长
+阵法	搜神禁	玄	2x1	5300	记录所有进出者的气息，用于追踪
+阵法	寒冰封锁阵	玄	4x3	5750	降低范围内温度，可冻结筑基修士
+阵法	八卦锁灵旗	玄	1x2	6150	封锁方圆百丈灵气，使其无法被调用
+阵法	隐匿幻形阵	玄	3x3	6400	中型幻阵，可遮蔽整座小型山头
+阵法	降头咒	玄	2x1	6850	远程削弱敌方气运与精神状态
+阵法	剑气绞杀阵	玄	4x3	7250	阵盘激活后释放出数十道凌厉剑气
+阵法	元神烙印	玄	2x1	7600	在法宝上刻下专属烙印，防止被夺
+阵法	乾坤倒转阵	玄	3x3	7950	使阵内上下颠倒，方向感彻底紊乱
+阵法	雷光防御阵	玄	3x3	8800	带有反震雷电效果的强力防御阵
+阵法	万里江山禁	地	6x1	8100	顶级封印，可困住元婴期修士数日
+阵法	聚灵化液阵	地	3x2	8650	将灵气浓缩至液态的高端修炼阵法
+阵法	陨落心炎咒	地	2x1	9100	针对心魔的咒术，极易诱发走火入魔
+阵法	空间凝滞禁	地	3x2	9500	冻结小范围空间，阻止任何瞬移手段
+阵法	遮天掩日大阵	地	6x1	13000	巨型战争法阵，可遮蔽一座城池
+阵法	十二都天旗·仿	地	1x2	20000	召唤十二具拥有地级实力的魔神虚影
+阵法	寿命锁魂禁	地	2x1	23500	以燃烧寿命为代价强行提升阵法威力
+阵法	涅槃再生阵	地	3x2	26000	重伤者入阵可加速肉身重塑的昂贵阵法
+阵法	归墟化灵阵	地	3x4	28500	将阵内万物分解为原始灵气的分解阵
+阵法	四象诛仙阵	天	3x5	30000	借用青龙白虎等四象之力的杀阵
+阵法	大预言术	天	3x2	58000	消耗气运强行改变未来的某种可能性
+阵法	虚空断层禁	天	5x2	74000	在空间中制造永久性的断层裂缝
+阵法	万星聚能阵	天	5x3	88000	采集诸天星力，为跨界传送提供能量
+阵法	轮回转生阵	天	6x2	105000	极度复杂的引导灵魂进入轮回的阵法
+阵法	诛仙阵图·残	天	3x4	125000	即使是残图，散发的杀气也能崩碎法宝
+阵法	灭世雷劫咒	天	3x2	155000	引动真正的九天雷劫降临的自毁咒语
+阵法	九天十地封神阵	圣	7x1	195000	传闻中可封印化神后期大能的古阵
+阵法	混沌原始阵	圣	8x1	400000	演化混沌，模拟宇宙诞生的至高大阵
+阵法	天道秩序锁	圣	3x2	600000	以法则为链，直接封印一个世界的意志
+阵法	永恒不灭永生阵	圣	2x7	3000000	使阵内时间完全停止，达成另类永生
+灵植	止血草	凡	1x1	140	荒野最常见的草药，可治愈凡人外伤
+灵植	辟谷花	凡	1x1	240	花瓣肥厚，研磨后是制作辟谷丹的主料
+灵植	铁线草	凡	1x2	320	茎干坚韧如铁丝，适合编织简易护具
+灵植	凝气苗	凡	1x1	420	带有微弱灵气，散修入药首选
+灵植	清风藤	凡	1x3	520	遇风则动，含有少许风属性灵力
+灵植	驱蚊艾	凡	1x1	610	燃烧时产生的烟雾可令凡俗毒虫退避
+灵植	朱果·初生	凡	1x1	640	色泽红润，蕴含微量火属性精华
+灵植	苦参果	凡	1x1	720	极度苦涩，具有清热解毒、提神之效
+灵植	野山参·十年	凡	2x1	810	基础补气药材，市井药铺亦有售卖
+灵植	枯木芽	凡	1x1	910	绝境中生出的嫩芽，蕴含顽强生机
+灵植	伴妖草	黄	1x1	970	伴随强大妖兽粪便而生，气息凶悍
+灵植	烈火草	黄	1x1	1350	叶片常年滚烫，炼制火系丹药的辅料
+灵植	矿脉石苔	黄	2x1	1450	生长在灵石矿边缘，吸饱了溢出的灵气
+灵植	寒露枝	黄	1x2	1850	晨间凝聚的露水不化，带有一丝寒气
+灵植	铁胎竹	黄	1x3	2300	质地坚硬如铁，是上好的箭矢材料
+灵植	迷幻毒菇	黄	1x1	2700	鲜艳夺目，吸入其孢子会产生幻觉
+灵植	灵犀草	黄	1x1	3050	叶尖如针，能感应到微弱的灵力波动
+灵植	蛇衔花	黄	1x2	3600	传闻由灵蛇守护，是解蛇毒的圣药
+灵植	云母兰	黄	1x1	3950	叶片如云母般透明，美观且蕴含水气
+灵植	聚气葫芦	黄	2x2	4700	天然生长的葫芦，可存放少量灵药液
+灵植	百年紫灵芝	玄	2x2	4750	紫气氤氲，具有极强的固本培元功效
+灵植	洗髓花	玄	1x1	5350	炼制洗髓丹的核心材料，可净化经脉
+灵植	龙鳞草	玄	2x1	5800	叶片重叠似龙鳞，能增强肉身防御
+灵植	幽冥兰	玄	1x2	6250	生于极阴之地，通体幽黑，入药伤魂
+灵植	七星海棠	玄	2x2	6650	花瓣带星点，剧毒，亦是极佳的暗器毒源
+灵植	离火枫叶	玄	1x1	7050	永不凋谢的枫叶，蕴含精纯的离火之力
+灵植	风语木	玄	1x3	7400	枝叶摩擦声如人语，适合制作音攻法宝
+灵植	地底玉髓根	玄	3x1	7850	根茎如脂如玉，汇聚了深层地脉精华
+灵植	飞羽草	玄	1x1	8150	质地极轻，磨成粉末后可炼制疾速丹
+灵植	虎力果	玄	1x1	8900	形状酷似虎头，服用后大幅提升爆发力
+灵植	千年雪莲	地	2x2	8500	开在万年冰川，净化神魂杂念之圣品
+灵植	九曲灵参	地	3x1	9250	参身九弯，已有初步灵智，极擅土遁
+灵植	降龙木	地	1x3	9750	坚韧不拔，雷击不灭，炼制重兵刃极品
+灵植	凤血草	地	1x2	11000	传说滴过凤凰真血，火系修士的至宝
+灵植	精金枣	地	1x1	15500	皮如赤金，服用可使骨骼带上一丝金性
+灵植	碧波灵藕	地	4x1	18000	重塑经脉的奇物，亦可作为傀儡核心
+灵植	幻心兰王	地	2x2	21000	盛开时香飘十里，能困住元婴期神识
+灵植	悟道茶叶·单片	地	1x1	29000	仅一片叶子即可带人进入短暂的冥想状态
+灵植	逆天续命草	地	3x1	29500	强行修补破碎丹田，延缓伤势爆发
+灵植	菩提子	天	1x1	31000	佛门圣物，持之可抵御心魔，助益悟道
+灵植	蟠桃·残次品	天	3x1	36000	上界流出的残果，延寿五百年不成问题
+灵植	玄武坚果	天	1x1	37000	外壳硬度堪比法宝，内含厚重的土灵力
+灵植	万年定魂莲	天	3x1	56000	只要莲瓣不枯，受术者魂魄便永不消散
+灵植	五行麒麟花	天	3x1	92000	汇聚五行灵气，叶生五色，极其罕见
+灵植	九叶还魂草	天	1x1	115000	传说中有起死回生之能，一叶便是一条命
+灵植	天劫雷木·焦黑	天	4x1	180000	历经九重雷劫存活的残干，雷属性天花板
+灵植	虚空道种	圣	1x1	225000	蕴含一丝空间法则，是跨入化神的契机
+灵植	建木残枝	圣	4x1	1000000	支撑天地的神树碎片，重量足以压塌山岳
+灵植	世界树之叶	圣	4x1	1500000	每一道脉络都代表一条法则，吞之可成圣
+灵植	永恒长生果	圣	4x1	8000000	传说中宇宙终结亦不朽的果实，永生不死
+灵兽	尖角兔	凡	2x1	150	胆小易惊，头顶尖角有微弱穿透力
+灵兽	传信青鸟	凡	2x1	170	速度极快的飞禽，常用于宗门间传递书信
+灵兽	萤火甲虫	凡	2x1	200	尾部发光可聚集成束，地底探险常用
+灵兽	大肚土蛙	凡	2x1	210	鸣叫声大，能预警地震或土灵力紊乱
+灵兽	负重骡	凡	2x1	280	耐力惊人，能够搬运大量修仙杂物
+灵兽	铁背猪	凡	2x1	330	皮厚肉糙，攻击性弱，常作为练气初期练手对象
+灵兽	灵茧蚕	凡	2x1	390	吐出的丝带有微弱灵力，是制作法衣的原料
+灵兽	寻宝鼠	凡	2x1	530	嗅觉灵敏，能感知方圆百米内的灵石波动
+灵兽	守山犬	凡	2x1	660	对陌生气息极为敏感，适合看守洞府
+灵兽	独角羊	凡	3x2	830	性情温顺，肉质蕴含少量灵气，可食用
+灵兽	暴戾野猪	黄	3x2	750	受到攻击会陷入狂暴，横冲直撞
+灵兽	疾风狼	黄	3x2	960	群居妖兽，速度极快，爪部带风刃效果
+灵兽	幽冥猫	黄	2x2	1150	动作极其敏捷，能在阴影中潜行
+灵兽	火灵狐	黄	2x2	1900	全身火红，能喷射小火球，极具灵性
+灵兽	踏雪灵马	黄	2x2	2250	日行千里，蹄部带有冰属性，奔跑如飞
+灵兽	迷魂蝶	黄	2x2	2600	翅膀上的粉末具有催眠效果
+灵兽	噬金虫·幼虫	黄	2x2	2800	喜食金属，群聚时可啃食低阶法器
+灵兽	碧水蟒	黄	2x2	3250	水中行动力极强，擅长缠绕勒杀
+灵兽	铁羽鹰	黄	2x2	3650	羽毛坚硬如铁，高空俯冲威力惊人
+灵兽	护法神猿	黄	3x4	3750	具备初级智慧，能简单操纵棍棒类兵器
+灵兽	巨岩怪蛇	玄	5x1	4850	全身覆盖岩石，防御力极强
+灵兽	金甲穿山兽	玄	3x4	5100	擅长土系法术，挖掘矿脉的好帮手
+灵兽	寒冰巨蟒	玄	5x1	5400	喷吐寒气冻结目标，力量足以绞碎岩石
+灵兽	云端白鹤	玄	2x2	5850	名门正派标配坐骑，身姿优雅，速度极快
+灵兽	烈焰狮	玄	2x2	5900	结丹期守门级妖兽，咆哮带火
+灵兽	银月苍狼	玄	2x2	6300	月圆之夜实力翻倍，能吸收月华修炼
+灵兽	魅影豹	玄	2x2	6700	移动时产生重重幻影，极难捕捉其真身
+灵兽	六翼霜蝉	玄	2x2	7100	振翅可使周围空气迅速降温，极罕见
+灵兽	紫晶蝎	玄	2x2	7450	外壳如紫水晶般坚硬，尾刺带剧毒
+灵兽	黑渊魔狼	玄	2x2	8050	被魔气侵蚀的妖兽，极度嗜血且悍不畏死
+灵兽	嗜血飞蚁群	地	2x2	8300	万余只飞蚁构成的集群，所过之处寸草不生
+灵兽	独角天马	地	2x2	9150	具飞行能力，双翼挥动间有神圣灵力
+灵兽	裂地巨蜥	地	2x2	9350	趴伏如小山，能引发局部地震
+灵兽	碧睛狂狮	地	2x2	9550	瞳孔可发射破幻神光，群山之王
+灵兽	撼山巨猿	地	4x5	9950	力量极其恐怖，双拳可震碎山头
+灵兽	七彩孔雀	地	2x2	13500	五行法术通晓，尾羽是炼制高端法宝的材料
+灵兽	九头蛇怪	地	5x4	20500	每一颗头颅拥有一种属性，生命力顽强
+灵兽	翻海蛟	地	6x3	22000	具备一丝真龙血脉，可呼风唤雨
+灵兽	寻灵古鹿	地	2x2	28000	天生自带祥瑞气息，能自行寻找万年药草
+灵兽	吞噬者	天	5x1	32000	能够吞噬灵力护罩的恐怖暗属性生物
+灵兽	饕餮残血裔	天	3x4	50000	永远处于饥饿状态，可吞噬敌人的攻击
+灵兽	九尾天狐·幼崽	天	2x2	64000	倾国倾城之姿，擅长幻术与灵魂操控
+灵兽	裂空金雕	天	2x2	68000	翅刃能划开空间裂缝，速度之最
+灵兽	吞天蟒·成年	天	5x2	84000	张口可吞下一座小镇，内蕴乾坤空间
+灵兽	麒麟幼崽	天	3x6	100000	瑞兽之首，出生即带天地法则保护
+灵兽	焚天朱雀·雏鸟	天	2x6	145000	涅槃而生的神禽，火焰能焚烧虚空
+灵兽	鸿蒙金蚕	圣	3x1	300000	传闻以鸿蒙紫气为食，吐丝可缚仙人
+灵兽	凤凰不死鸟	圣	3x1	700000	拥有无限涅槃之能，掌控世间一切火焰
+灵兽	五爪金龙	圣	2x3	800000	真龙正统，龙威覆盖之下，万兽臣服
+灵兽	鲲鹏本体	圣	2x3	5000000	入水为鲲，化鸟为鹏，背负青天，遮天蔽日
+杂项	精铁矿	凡	1x1	180	炼制凡兵最常用的基础矿石
+杂项	柔韧兔皮	凡	2x1	250	制作低级皮甲或符纸的边角料
+杂项	散修盟铁牌	凡	1x1	340	散修坊市的入场凭证，身份象征
+杂项	生锈的铁钥	凡	1x1	400	凡俗地窖或普通铁锁的钥匙
+杂项	机械木犬	凡	2x2	540	仅具看门报警功能，无战斗力
+杂项	粗炼铜精	凡	1x1	670	凡火炼出的铜中精华，韧性尚可
+杂项	槐木心	凡	1x2	740	阴气较重的木材，适合做简易魂具
+杂项	杂役弟子令	凡	1x1	840	宗门最底层弟子的身份标识
+杂项	铁甲犀牛角	凡	3x1	920	坚硬的生物材料，可打磨成锥头
+杂项	练功木人桩	凡	1x3	1600	自动回位的木人，供入门弟子练力
+杂项	玄铁赤矿	黄	1x1	800	带有火属性气息的矿石，导灵性佳
+杂项	外门弟子令	黄	1x1	1250	进出宗门外阁及租借洞府的凭证
+杂项	疾风狼爪	黄	1x1	1950	锋利且带有风息，适合做短匕素材
+杂项	铜纹密匙	黄	1x1	2350	对应普通修仙家族的藏宝箱
+杂项	青铜甲士	黄	3x1	3100	笨重的近战傀儡，能抵挡练气后期攻击
+杂项	秘银粉末	黄	1x1	3700	炼器添加剂，可显著提升灵力传导
+杂项	二级妖丹·残	黄	1x1	3800	破损的妖丹，虽不能服用但可作燃料
+杂项	坊市贵宾卡	黄	1x1	4350	在大型交易中心可享受九五折优惠
+杂项	墨蛟鳞片	黄	1x1	4800	坚固的蛇鳞，制作轻甲的极佳材料
+杂项	机关飞鸢	黄	3x1	5000	简易飞行载具，仅能离地十米滑行
+杂项	沉香金	玄	1x1	4100	密度极大的金属，增加法宝重量感
+杂项	筑基修士骨骸	玄	3x1	4950	魔道炼器的常见材料，蕴含死气
+杂项	内门核心令	玄	1x1	5550	宗门精英象征，可出入藏经阁二层
+杂项	寒玉钥匙	玄	1x1	6200	开启极寒之地禁制或冰棺的钥匙
+杂项	银影蜘蛛	玄	2x1	6600	擅长潜伏与喷射粘性灵网的机关兽
+杂项	万年玄冰髓	玄	1x2	6900	极寒精华，是压制火毒的绝佳基底
+杂项	雷震石	玄	1x1	7500	内部蕴含微弱雷电，触碰会有麻痹感
+杂项	幻心蝶翅	玄	2x1	7900	晶莹剔透，是布置幻阵的媒介材料
+杂项	城主府通行证	玄	1x1	8350	在仙城内拥有执法权或豁免权
+杂项	戍卫石像生	玄	3x1	9000	守护洞府的重型石偶，力大无穷
+杂项	宗门长老令	地	1x1	9200	拥有调动宗门部分武力的绝对权力
+杂项	元婴期妖兽筋	地	4x1	9650	极其强韧，是制作高级弓弦的不二之选
+杂项	须弥古匙	地	1x1	10000	开启上古小世界的空间节点钥匙
+杂项	巨力猿傀儡	地	3x1	14000	仿照撼山猿制作，足以正面抗衡元婴
+杂项	天星砂·整瓶	地	1x2	17500	炼入法宝可增加瞬移稳定性
+杂项	战神殿杀戮令	地	1x1	24000	某种古老传承的试炼邀请函
+杂项	麒麟角残片	地	1x1	26500	虽是残片，亦自带辟邪镇魔之威
+杂项	巡天战舟·简	地	3x1	35000	具备防御阵法的大型空中运输傀儡
+杂项	太阳精金	天	1x1	15000	采自地核之火，炼制地级火宝的主料
+杂项	混沌土岩	天	1x1	33000	沉重且具备自我修复能力的特殊土石
+杂项	太上荣光牌	天	1x1	42000	传说中化神老祖亲自颁发的免死令
+杂项	星辰泪	天	1x1	66000	陨星坠落后的核心，蕴含纯净星力
+杂项	凤凰真羽	天	1x3	86000	蕴含涅槃之火，法宝受损可自动修复
+杂项	登仙路秘钥	天	1x1	96000	传闻中通往上界试炼之地的钥匙
+杂项	万物母气源	天	1x1	120000	极其厚重的原始材料，一缕压塌山脉
+杂项	金甲化神偶	天	1x1	160000	注入极品灵石可发挥化神初期战力
+杂项	四灵合体巨兵	天	1x1	190000	由四架地级傀儡组合而成的战争机器
+杂项	圣域诏令	圣	3x1	325000	圣级强者发出的号令，见令牌如见本人
+杂项	混沌补天石	圣	3x1	650000	传闻可修补破碎世界的至高神材
+杂项	诸神黄昏号	圣	3x1	9000000	远古文明遗留，具备抹杀星球实力的终极傀儡
+`;
 
-  // ==================== 丹药 -> 丹药 ====================
-  createItem({ id: "dy_001", name: "黄龙丹", price: 260, width: 1, height: 1, quality: "凡", type: "丹药", desc: "炼气期十层以下服用有奇效。" }),
-  createItem({ id: "dy_002", name: "金髓丸", price: 260, width: 1, height: 1, quality: "凡", type: "丹药", desc: "炼气期十层以下服用有奇效。" }),
-  createItem({ id: "dy_003", name: "合气丹", price: 900, width: 1, height: 1, quality: "黄", type: "丹药", desc: "适合筑基期境界的灵药。" }),
-  createItem({ id: "dy_004", name: "辟谷丹", price: 80, width: 1, height: 1, quality: "凡", type: "丹药", desc: "低阶修士服用此丹可以短时间不必进食。" }),
-  createItem({ id: "dy_005", name: "定颜丹", price: 8800, width: 1, height: 2, quality: "地", type: "丹药", desc: "用于永驻容貌。" }),
-  createItem({ id: "dy_006", name: "筑基丹", price: 3200, width: 1, height: 1, quality: "玄", type: "丹药", desc: "升仙丸，用于突破瓶颈筑基。" }),
-  createItem({ id: "dy_007", name: "饲灵丸", price: 1600, width: 1, height: 1, quality: "玄", type: "丹药", desc: "古修士专门用来饲养培育灵兽的灵药。" }),
-  createItem({ id: "dy_008", name: "真元丹", price: 1500, width: 1, height: 1, quality: "玄", type: "丹药", desc: "适合筑基中期修士增进修为的丹药。" }),
-  createItem({ id: "dy_009", name: "聚灵丹", price: 1200, width: 1, height: 1, quality: "玄", type: "丹药", desc: "适合筑基期修士增进修为的丹药。" }),
-  createItem({ id: "dy_010", name: "炼气散", price: 900, width: 1, height: 1, quality: "黄", type: "丹药", desc: "适合筑基期修士增进修为的丹药。" }),
-  createItem({ id: "dy_011", name: "补天丹", price: 38000, width: 2, height: 2, quality: "天", type: "丹药", desc: "可弥补灵根的不纯，精炼先天灵根。" }),
-  createItem({ id: "dy_012", name: "降尘丹", price: 15000, width: 2, height: 2, quality: "地", type: "丹药", desc: "具有增加结丹几率的灵丹。" }),
-  createItem({ id: "dy_013", name: "定灵丹", price: 18000, width: 2, height: 2, quality: "地", type: "丹药", desc: "又叫安魂丹，可以增进修为，还可以定心安魂。" }),
-  createItem({ id: "dy_014", name: "长生丹", price: 28000, width: 2, height: 2, quality: "天", type: "丹药", desc: "用寿元果炼制的灵丹，可增加寿元。" }),
-  createItem({ id: "dy_015", name: "增元丹", price: 16000, width: 2, height: 2, quality: "地", type: "丹药", desc: "适合结丹期服用的提升修为灵丹。" }),
-  createItem({ id: "dy_016", name: "九曲灵参丹", price: 52000, width: 2, height: 3, quality: "天", type: "丹药", desc: "以九曲灵参、玛瑙角、千叶露为原料炼制而成，用于增加结婴几率。" }),
-  createItem({ id: "dy_017", name: "造化丹", price: 48000, width: 2, height: 3, quality: "天", type: "丹药", desc: "服用后堕入幻境体验境界，对突破境界有奇效。" }),
-  createItem({ id: "dy_018", name: "绎云丹", price: 24000, width: 2, height: 2, quality: "地", type: "丹药", desc: "适合元婴中期提升修为的丹药。" }),
-  createItem({ id: "dy_019", name: "雪魄丸", price: 18000, width: 2, height: 2, quality: "地", type: "丹药", desc: "修炼冰寒属性功法的修士辅助灵药。" }),
-  createItem({ id: "dy_020", name: "昊元丹", price: 16000, width: 2, height: 2, quality: "地", type: "丹药", desc: "结丹期修士突破瓶颈增进修为的灵丹。" }),
-  createItem({ id: "dy_021", name: "培婴丹", price: 42000, width: 2, height: 3, quality: "天", type: "丹药", desc: "可洗筋易髓，壮大元婴，使人更容易突破修炼瓶颈。" }),
-  createItem({ id: "dy_022", name: "清虚丹", price: 12000, width: 1, height: 2, quality: "地", type: "丹药", desc: "可以使灵兽保持神智的丹药。" }),
-  createItem({ id: "dy_023", name: "血气丹", price: 22000, width: 2, height: 2, quality: "地", type: "丹药", desc: "可使化神期修士寿元延长数十年的丹药。" }),
-  createItem({ id: "dy_024", name: "紫阴丸", price: 18000, width: 1, height: 2, quality: "地", type: "丹药", desc: "可制衡龙吟之质的丹药。" }),
-  createItem({ id: "dy_025", name: "碧焰酒", price: 9000, width: 1, height: 2, quality: "玄", type: "丹药", desc: "裂风兽酿制的灵酒。" }),
-  createItem({ id: "dy_026", name: "雾雨灵茶", price: 1500, width: 1, height: 1, quality: "黄", type: "丹药", desc: "天机阁招待客人的灵茶。" }),
-  createItem({ id: "dy_027", name: "万年灵乳", price: 52000, width: 2, height: 2, quality: "天", type: "丹药", desc: "喝一滴可以瞬间回复全部法力的灵液。" }),
-  createItem({ id: "dy_028", name: "明清灵水", price: 22000, width: 1, height: 2, quality: "地", type: "丹药", desc: "用此水擦拭双目，可以产生明清灵眼神通。" }),
-  createItem({ id: "dy_029", name: "回阳真水", price: 62000, width: 2, height: 3, quality: "天", type: "丹药", desc: "白骨生肉的秘药，可延长修士四分之一寿元。" }),
-  createItem({ id: "dy_030", name: "灭尘丹", price: 18000, width: 1, height: 2, quality: "地", type: "丹药", desc: "让飞升灵界的修士去除异界气息。" }),
-  createItem({ id: "dy_031", name: "腾龙丹", price: 34000, width: 2, height: 2, quality: "天", type: "丹药", desc: "以芝龙果为主料炼制。" }),
-  createItem({ id: "dy_032", name: "虚灵丹", price: 86000, width: 3, height: 3, quality: "圣", type: "丹药", desc: "太虚妙灵丹，可极大增加高阶突破几率。" }),
-  createItem({ id: "dy_033", name: "清灵散", price: 220, width: 1, height: 1, quality: "凡", type: "丹药", desc: "解毒与疗伤丹散。" }),
-  createItem({ id: "dy_034", name: "养精丹", price: 260, width: 1, height: 1, quality: "凡", type: "丹药", desc: "疗伤补气的低阶丹药。" }),
-  createItem({ id: "dy_035", name: "百草丹", price: 320, width: 1, height: 1, quality: "黄", type: "丹药", desc: "草木精华炼成的疗伤丹药。" }),
-  createItem({ id: "dy_036", name: "还梦丹", price: 600, width: 1, height: 1, quality: "黄", type: "丹药", desc: "用于安神定魄和恢复心神。" }),
-  createItem({ id: "dy_037", name: "血肢丹", price: 800, width: 1, height: 1, quality: "黄", type: "丹药", desc: "疗伤断肢相关灵丹。" }),
-  createItem({ id: "dy_038", name: "腐心丸", price: 900, width: 1, height: 1, quality: "黄", type: "丹药", desc: "阴毒控制类药丸。" }),
-  createItem({ id: "dy_039", name: "抽髓丸", price: 1200, width: 1, height: 1, quality: "玄", type: "丹药", desc: "阴狠霸道的毒药。" }),
-  createItem({ id: "dy_040", name: "尸虫丸", price: 1600, width: 1, height: 1, quality: "玄", type: "丹药", desc: "用于控制与蛊毒的邪门药丸。" }),
-  createItem({ id: "dy_041", name: "断魂丹", price: 2000, width: 1, height: 1, quality: "玄", type: "丹药", desc: "可伤神魂的毒丹。" }),
-  createItem({ id: "dy_042", name: "笑魂散", price: 2200, width: 1, height: 1, quality: "玄", type: "丹药", desc: "作用于神识魂魄的古怪毒散。" }),
-  createItem({ id: "dy_043", name: "至元丹", price: 22000, width: 2, height: 2, quality: "地", type: "丹药", desc: "较高阶的修为提升丹药。" }),
-  createItem({ id: "dy_044", name: "幻灭丹", price: 24000, width: 2, height: 2, quality: "地", type: "丹药", desc: "突破瓶颈类丹药。" }),
-  createItem({ id: "dy_045", name: "天心丹", price: 22000, width: 2, height: 2, quality: "地", type: "丹药", desc: "偏向神识与精神稳固的丹药。" }),
-  createItem({ id: "dy_046", name: "蕴念珠", price: 26000, width: 2, height: 2, quality: "地", type: "丹药", desc: "用于养神蕴念之物。" }),
-  createItem({ id: "dy_047", name: "血阳丹", price: 30000, width: 2, height: 2, quality: "天", type: "丹药", desc: "高阶增益型丹药。" }),
-  createItem({ id: "dy_048", name: "玉清丹", price: 32000, width: 2, height: 2, quality: "天", type: "丹药", desc: "高阶修士服用的精纯灵丹。" }),
-  createItem({ id: "dy_049", name: "真蟾液", price: 36000, width: 2, height: 2, quality: "天", type: "丹药", desc: "高阶灵液。" }),
-  createItem({ id: "dy_050", name: "焕心丹", price: 34000, width: 2, height: 2, quality: "天", type: "丹药", desc: "恢复心脉与神魂的高阶丹药。" }),
-  createItem({ id: "dy_051", name: "魔炼天元丹", price: 46000, width: 2, height: 3, quality: "天", type: "丹药", desc: "极高阶魔道丹药。" }),
-  createItem({ id: "dy_052", name: "雷髓丹", price: 42000, width: 2, height: 3, quality: "天", type: "丹药", desc: "雷属性修士珍视的高阶丹药。" }),
-  createItem({ id: "dy_053", name: "万妙丹", price: 50000, width: 2, height: 3, quality: "天", type: "丹药", desc: "高阶综合增益灵丹。" }),
-  createItem({ id: "dy_054", name: "长元丹", price: 72000, width: 3, height: 3, quality: "圣", type: "丹药", desc: "极品丹药，可大幅延长元气与修行底蕴。" }),
+const TYPE_SERIAL = {
+  功法: "gf",
+  丹药: "dy",
+  武器: "wq",
+  符箓: "fl",
+  阵法: "zf",
+  灵植: "lz",
+  灵兽: "ls",
+  杂项: "zx",
+};
 
-  // ==================== 符箓 -> 符箓 ====================
-  createItem({ id: "fl_001", name: "平安符", price: 30, width: 1, height: 1, quality: "凡", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_002", name: "隐身符", price: 180, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_003", name: "遁地符", price: 220, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_004", name: "连珠雷符", price: 260, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_005", name: "冰弹符", price: 60, width: 1, height: 1, quality: "凡", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_006", name: "火弹符", price: 60, width: 1, height: 1, quality: "凡", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_007", name: "定神符", price: 80, width: 1, height: 1, quality: "凡", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_008", name: "传音符", price: 40, width: 1, height: 1, quality: "凡", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_009", name: "遁形符", price: 180, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_010", name: "飞天符", price: 220, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_011", name: "回春符", price: 150, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_012", name: "火云符", price: 180, width: 1, height: 1, quality: "黄", type: "符箓", desc: "初级符箓。" }),
-  createItem({ id: "fl_013", name: "小五行符", price: 800, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_014", name: "融灵符", price: 680, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_015", name: "巨力符", price: 520, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_016", name: "隔音符", price: 260, width: 1, height: 1, quality: "黄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_017", name: "水牢符", price: 620, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_018", name: "火鸟符", price: 720, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_019", name: "陷地符", price: 680, width: 1, height: 1, quality: "玄", type: "符箓", desc: "中级符箓。" }),
-  createItem({ id: "fl_020", name: "灵隐符", price: 2200, width: 1, height: 1, quality: "地", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_021", name: "敛息符", price: 1800, width: 1, height: 1, quality: "玄", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_022", name: "镇魂符", price: 2800, width: 1, height: 1, quality: "地", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_023", name: "传送符", price: 4200, width: 1, height: 1, quality: "地", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_024", name: "化灵符", price: 3200, width: 1, height: 1, quality: "地", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_025", name: "六丁天甲符", price: 12000, width: 1, height: 2, quality: "天", type: "符箓", desc: "高级符箓。" }),
-  createItem({ id: "fl_026", name: "降灵符", price: 2600, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_027", name: "灭魂符", price: 5200, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_028", name: "破界符", price: 18000, width: 1, height: 2, quality: "天", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_029", name: "万里符", price: 6000, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_030", name: "太一化清符", price: 22000, width: 1, height: 2, quality: "天", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_031", name: "傀儡符", price: 2400, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_032", name: "九宫天乾符", price: 18000, width: 1, height: 2, quality: "天", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_033", name: "甲元符", price: 1200, width: 1, height: 1, quality: "玄", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_034", name: "天空符", price: 3200, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_035", name: "空明符", price: 3600, width: 1, height: 1, quality: "地", type: "符箓", desc: "特殊符箓。" }),
-  createItem({ id: "fl_036", name: "玄化封灵符", price: 42000, width: 2, height: 2, quality: "天", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_037", name: "三清雷霄符", price: 68000, width: 2, height: 2, quality: "圣", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_038", name: "金品替身仙符", price: 98000, width: 2, height: 3, quality: "圣", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_039", name: "避风符", price: 22000, width: 1, height: 2, quality: "天", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_040", name: "桃僵李代符", price: 38000, width: 2, height: 2, quality: "天", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_041", name: "分灵符", price: 26000, width: 2, height: 2, quality: "天", type: "符箓", desc: "真仙界符箓。" }),
-  createItem({ id: "fl_042", name: "符宝", price: 18000, width: 2, height: 2, quality: "地", type: "符箓", desc: "结丹期以上修士才可制作，兼具符箓和法宝特性。" }),
+const counters = Object.fromEntries(Object.keys(TYPE_SERIAL).map((type) => [type, 0]));
 
-  // ==================== 阵法 -> 阵法 ====================
-  createItem({ id: "zf_001", name: "古传送阵", price: 42000, width: 3, height: 3, quality: "天", type: "阵法", desc: "能够进行超远距离传送。" }),
-  createItem({ id: "zf_002", name: "单向传送阵", price: 12000, width: 2, height: 2, quality: "地", type: "阵法", desc: "仅需要传送端，无需接收端。" }),
-  createItem({ id: "zf_003", name: "临时传送阵", price: 5200, width: 2, height: 2, quality: "玄", type: "阵法", desc: "仅能使用一次的传送阵。" }),
-  createItem({ id: "zf_004", name: "风炎龙烈阵", price: 46000, width: 3, height: 4, quality: "天", type: "阵法", desc: "攻击型法阵，威力巨大。" }),
-  createItem({ id: "zf_005", name: "冰魄寒烈阵", price: 52000, width: 3, height: 4, quality: "天", type: "阵法", desc: "上古法阵，由万年玄冰柱组成。" }),
-  createItem({ id: "zf_006", name: "风火天绝阵", price: 24000, width: 3, height: 3, quality: "地", type: "阵法", desc: "由风火铜柱组成，用于围困。" }),
-  createItem({ id: "zf_007", name: "上元灭光阵", price: 68000, width: 4, height: 4, quality: "天", type: "阵法", desc: "阗天城的护城大阵。" }),
-  createItem({ id: "zf_008", name: "九阳罡日法阵", price: 56000, width: 3, height: 4, quality: "天", type: "阵法", desc: "吸纳天地阳力，提升防御力。" }),
-  createItem({ id: "zf_009", name: "颠倒五行阵", price: 22000, width: 2, height: 3, quality: "地", type: "阵法", desc: "小禁断之阵，用于迷惑和困敌。" }),
-  createItem({ id: "zf_010", name: "四煞阵", price: 16000, width: 2, height: 3, quality: "地", type: "阵法", desc: "抵御魔道的防守法阵。" }),
-  createItem({ id: "zf_011", name: "四象阵", price: 12000, width: 2, height: 2, quality: "玄", type: "阵法", desc: "用于困敌。" }),
-  createItem({ id: "zf_012", name: "五行使踪阵", price: 22000, width: 2, height: 3, quality: "地", type: "阵法", desc: "幻术法阵，用于困敌。" }),
-  createItem({ id: "zf_013", name: "幻光玄天阵", price: 58000, width: 3, height: 4, quality: "天", type: "阵法", desc: "用于困制冰凤。" }),
-  createItem({ id: "zf_014", name: "万魂大阵", price: 42000, width: 3, height: 4, quality: "天", type: "阵法", desc: "鬼灵门大阵，可能用于控制或召唤魂魄。" }),
-  createItem({ id: "zf_015", name: "两仪微尘阵", price: 120000, width: 5, height: 5, quality: "圣", type: "阵法", desc: "仙界法阵，具有困敌、削弱、自爆功能。" }),
-  createItem({ id: "zf_016", name: "青真琉光大阵", price: 62000, width: 4, height: 4, quality: "天", type: "阵法", desc: "上古秘阵，擅于困敌。" }),
-  createItem({ id: "zf_017", name: "小须弥金刚阵", price: 52000, width: 3, height: 4, quality: "天", type: "阵法", desc: "佛宗法阵，坚固难破。" }),
-  createItem({ id: "zf_018", name: "上古封印法阵", price: 72000, width: 4, height: 4, quality: "天", type: "阵法", desc: "以七灵岛为阵眼的封印阵。" }),
-  createItem({ id: "zf_019", name: "血咒之门", price: 62000, width: 3, height: 4, quality: "天", type: "阵法", desc: "封印血焰主魂。" }),
-  createItem({ id: "zf_020", name: "太妙神禁", price: 140000, width: 5, height: 5, quality: "圣", type: "阵法", desc: "十大古禁之一。" }),
-  createItem({ id: "zf_021", name: "八元锁魂阵", price: 150000, width: 5, height: 5, quality: "圣", type: "阵法", desc: "真仙界阵法，用于封印强大生物。" }),
-  createItem({ id: "zf_022", name: "控神法阵", price: 9000, width: 2, height: 2, quality: "玄", type: "阵法", desc: "用于灵虫认主的仪式。" }),
-  createItem({ id: "zf_023", name: "天罡罩", price: 18000, width: 2, height: 3, quality: "地", type: "阵法", desc: "上古禁制，用于特定地点的保护。" }),
-  createItem({ id: "zf_024", name: "拘灵阵", price: 6200, width: 2, height: 2, quality: "玄", type: "阵法", desc: "可以掩饰灵气的阵法。" }),
-  createItem({ id: "zf_025", name: "转轮聚阴阵", price: 12000, width: 2, height: 3, quality: "地", type: "阵法", desc: "用于聚集阴气。" }),
-  createItem({ id: "zf_026", name: "御雷万封大阵", price: 82000, width: 4, height: 4, quality: "天", type: "阵法", desc: "用于限制万灵行动。" }),
-  createItem({ id: "zf_027", name: "千年一梦飘渺大阵", price: 160000, width: 5, height: 5, quality: "圣", type: "阵法", desc: "仙界著名阵法，让人陷入无法自拔的幻境。" }),
-  createItem({ id: "zf_028", name: "天风狂烈阵", price: 6800, width: 2, height: 2, quality: "玄", type: "阵法", desc: "范围广，使筑基期修士头疼。" }),
-  createItem({ id: "zf_029", name: "幻行天罗阵", price: 7200, width: 2, height: 2, quality: "玄", type: "阵法", desc: "范围广，影响筑基期修士。" }),
-  createItem({ id: "zf_030", name: "六遁水波阵", price: 18000, width: 2, height: 3, quality: "地", type: "阵法", desc: "需多人主持，既可困敌又可伤敌。" }),
-  createItem({ id: "zf_031", name: "北斗两仪阵", price: 22000, width: 2, height: 3, quality: "地", type: "阵法", desc: "按特定规律排列，形成北斗形状的阵势。" }),
-  createItem({ id: "zf_032", name: "四象玄武阵", price: 18000, width: 2, height: 3, quality: "地", type: "阵法", desc: "土属性法阵，强化地形硬度。" }),
-  createItem({ id: "zf_033", name: "浑天两仪阵", price: 56000, width: 3, height: 4, quality: "天", type: "阵法", desc: "消除合体期修士战斗的动静。" }),
-  createItem({ id: "zf_034", name: "黄沙阵", price: 2400, width: 2, height: 2, quality: "黄", type: "阵法", desc: "黄沙类困敌阵法。" }),
-  createItem({ id: "zf_035", name: "黄泉鬼阵", price: 22000, width: 2, height: 3, quality: "地", type: "阵法", desc: "鬼道阵法。" }),
-  createItem({ id: "zf_036", name: "八极分光阵", price: 42000, width: 3, height: 3, quality: "天", type: "阵法", desc: "高阶分光杀阵。" }),
-
-  // ==================== 灵植 -> 灵植 ====================
-  createItem({ id: "lz_001", name: "玉髓芝", price: 1800, width: 1, height: 2, quality: "玄", type: "灵植", desc: "炼制筑基丹的主原料。" }),
-  createItem({ id: "lz_002", name: "紫猴花", price: 1800, width: 1, height: 2, quality: "玄", type: "灵植", desc: "炼制筑基丹的主原料。" }),
-  createItem({ id: "lz_003", name: "天灵果", price: 2400, width: 1, height: 2, quality: "玄", type: "灵植", desc: "炼制筑基丹的主原料。" }),
-  createItem({ id: "lz_004", name: "七星草", price: 600, width: 1, height: 2, quality: "黄", type: "灵植", desc: "制作符纸的材料。" }),
-  createItem({ id: "lz_005", name: "龙鳞果", price: 26000, width: 2, height: 2, quality: "地", type: "灵植", desc: "仙家之果，据说服用之人可以脱胎换骨。" }),
-  createItem({ id: "lz_006", name: "霓裳草", price: 4200, width: 1, height: 2, quality: "玄", type: "灵植", desc: "别名诱妖草，能吸引八级以下妖兽。" }),
-  createItem({ id: "lz_007", name: "七霞莲", price: 38000, width: 2, height: 3, quality: "天", type: "灵植", desc: "凡人服用可以起死回生，修仙者服下可修为大涨。" }),
-  createItem({ id: "lz_008", name: "九曲灵参", price: 48000, width: 2, height: 3, quality: "天", type: "灵植", desc: "天地灵气所化灵草，灵性十足，可自行活动。" }),
-  createItem({ id: "lz_009", name: "寿元果", price: 26000, width: 2, height: 2, quality: "地", type: "灵植", desc: "可炼制长生丹，增加寿元。" }),
-  createItem({ id: "lz_010", name: "天青花", price: 4800, width: 1, height: 2, quality: "玄", type: "灵植", desc: "可以暂时强行提高妖兽道行，有副作用。" }),
-  createItem({ id: "lz_011", name: "金阳芝", price: 12000, width: 2, height: 2, quality: "地", type: "灵植", desc: "火属性灵草，是炼制火属性灵丹的顶阶材料。" }),
-  createItem({ id: "lz_012", name: "天元果", price: 18000, width: 2, height: 2, quality: "地", type: "灵植", desc: "吃一颗就可延寿百年的灵果。" }),
-  createItem({ id: "lz_013", name: "补天芝", price: 22000, width: 2, height: 2, quality: "地", type: "灵植", desc: "紫色灵芝，生吃即可精进数十年苦修。" }),
-  createItem({ id: "lz_014", name: "菩提花", price: 26000, width: 2, height: 2, quality: "地", type: "灵植", desc: "果实可解封魂咒。" }),
-  createItem({ id: "lz_015", name: "火精枣", price: 12000, width: 2, height: 2, quality: "地", type: "灵植", desc: "可利用火灵力强行突破功法瓶颈，但有危险。" }),
-  createItem({ id: "lz_016", name: "玄冰花", price: 12000, width: 1, height: 2, quality: "地", type: "灵植", desc: "炼制玄冰丹的主原料。" }),
-  createItem({ id: "lz_017", name: "冰灵果", price: 8600, width: 1, height: 2, quality: "玄", type: "灵植", desc: "果中含有极其精纯的冰寒灵力。" }),
-  createItem({ id: "lz_018", name: "天雷竹", price: 52000, width: 2, height: 4, quality: "天", type: "灵植", desc: "三大神木之一，万年天雷竹称为金雷竹。" }),
-  createItem({ id: "lz_019", name: "养魂木", price: 62000, width: 2, height: 4, quality: "天", type: "灵植", desc: "三大神木之一，可以滋养魂魄元神。" }),
-  createItem({ id: "lz_020", name: "灵眼之树", price: 72000, width: 3, height: 5, quality: "天", type: "灵植", desc: "三大神木之一，可流出醇液。" }),
-
-  // ==================== 灵兽 -> 灵兽 ====================
-  createItem({ id: "ls_001", name: "墨蛟", price: 18000, width: 4, height: 2, quality: "地", type: "灵兽", desc: "黑黝黝、浑身长着巨大鳞甲的蛇形妖物。" }),
-  createItem({ id: "ls_002", name: "脂阳鸟", price: 12000, width: 2, height: 2, quality: "地", type: "灵兽", desc: "诞生于精火之中，专爱食用各种阴鬼厉魄。" }),
-  createItem({ id: "ls_003", name: "血玉蜘蛛", price: 22000, width: 2, height: 2, quality: "地", type: "灵兽", desc: "曾帮助韩立取得虚天鼎。" }),
-  createItem({ id: "ls_004", name: "啼魂兽", price: 96000, width: 3, height: 4, quality: "圣", type: "灵兽", desc: "可喷出吸魂神光，吞噬精魂、鬼物和尸气。" }),
-  createItem({ id: "ls_005", name: "天都妖尸", price: 28000, width: 3, height: 3, quality: "地", type: "灵兽", desc: "极阴修炼天都尸火祭炼出的妖尸。" }),
-  createItem({ id: "ls_006", name: "狻猊兽", price: 46000, width: 3, height: 3, quality: "天", type: "灵兽", desc: "万丈海王族妖兽，身怀梵圣真片。" }),
-  createItem({ id: "ls_007", name: "雷鹏", price: 68000, width: 4, height: 3, quality: "天", type: "灵兽", desc: "天地灵鸟，飞遁速度极快。" }),
-  createItem({ id: "ls_008", name: "尸魈", price: 22000, width: 2, height: 3, quality: "地", type: "灵兽", desc: "怨气不散的高阶炼尸。" }),
-  createItem({ id: "ls_009", name: "四瞳灵狐", price: 30000, width: 2, height: 2, quality: "地", type: "灵兽", desc: "雪白灵狐，擅长隐匿、幻术。" }),
-  createItem({ id: "ls_010", name: "五行灵婴", price: 42000, width: 2, height: 3, quality: "天", type: "灵兽", desc: "御灵宗用稀有材料和秘术炼制而成。" }),
-  createItem({ id: "ls_011", name: "至木灵婴", price: 48000, width: 2, height: 3, quality: "天", type: "灵兽", desc: "五行灵婴之一，后被韩立炼化成第二元婴。" }),
-  createItem({ id: "ls_012", name: "青风牛", price: 12000, width: 3, height: 2, quality: "玄", type: "灵兽", desc: "七级妖兽，被天澜圣殿用于圣兽铸体。" }),
-  createItem({ id: "ls_013", name: "冰甲蟒", price: 12000, width: 3, height: 2, quality: "玄", type: "灵兽", desc: "七级妖兽，被天澜圣殿用于圣兽铸体。" }),
-  createItem({ id: "ls_014", name: "昊阳鸟", price: 24000, width: 2, height: 3, quality: "地", type: "灵兽", desc: "火属性灵禽，岳阳宫的传承灵禽。" }),
-  createItem({ id: "ls_015", name: "土甲龙", price: 16000, width: 3, height: 2, quality: "玄", type: "灵兽", desc: "防御极强且擅长寻找天材地宝。" }),
-  createItem({ id: "ls_016", name: "金身月尸", price: 62000, width: 3, height: 4, quality: "天", type: "灵兽", desc: "人界最高等阶的炼尸，化神期修为。" }),
-  createItem({ id: "ls_017", name: "银翅夜叉", price: 42000, width: 3, height: 4, quality: "天", type: "灵兽", desc: "仅次于金身月尸的炼尸。" }),
-  createItem({ id: "ls_018", name: "阴芝马", price: 22000, width: 2, height: 2, quality: "地", type: "灵兽", desc: "其血肉是培婴丹的主原料。" }),
-  createItem({ id: "ls_019", name: "孽猿", price: 18000, width: 3, height: 3, quality: "玄", type: "灵兽", desc: "由人的怨念在重阴之地凝结形成。" }),
-  createItem({ id: "ls_020", name: "冰凤", price: 82000, width: 4, height: 4, quality: "圣", type: "灵兽", desc: "具真灵天凤部分血脉的天地灵兽后裔。" }),
-  createItem({ id: "ls_021", name: "珈轮战魔", price: 36000, width: 3, height: 3, quality: "地", type: "灵兽", desc: "三首形态的古魔。" }),
-  createItem({ id: "ls_022", name: "罗睺", price: 160000, width: 5, height: 5, quality: "圣", type: "灵兽", desc: "可吞食日月并破空穿梭于界面间的魔兽。" }),
-  createItem({ id: "ls_023", name: "游天鲲鹏", price: 160000, width: 5, height: 5, quality: "圣", type: "灵兽", desc: "罗睺的死敌，天生的风属性妖灵。" }),
-  createItem({ id: "ls_024", name: "离火麒麟", price: 140000, width: 5, height: 4, quality: "圣", type: "灵兽", desc: "灵界高阶妖兽，可与罗睺等相媲美。" }),
-  createItem({ id: "ls_025", name: "真灵", price: 220000, width: 6, height: 6, quality: "圣", type: "灵兽", desc: "可与大乘存在相提并论的顶级存在。" }),
-
-  // ==================== 法器 / 法宝 -> 武器 ====================
-  createItem({ id: "wq_001", name: "神风舟", price: 1800, width: 2, height: 1, quality: "玄", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_002", name: "踏云靴", price: 1600, width: 1, height: 2, quality: "玄", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_003", name: "聚魂钵", price: 5200, width: 2, height: 2, quality: "地", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_004", name: "银丝鼎", price: 3200, width: 2, height: 2, quality: "地", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_005", name: "大挪移令", price: 26000, width: 2, height: 2, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_006", name: "玄玉令牌", price: 2200, width: 1, height: 2, quality: "玄", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_007", name: "雪虹绫", price: 4200, width: 2, height: 2, quality: "地", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_008", name: "月阳宝珠", price: 6200, width: 2, height: 2, quality: "地", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_009", name: "风云幡", price: 5200, width: 2, height: 3, quality: "地", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_010", name: "镇海钟", price: 12000, width: 2, height: 3, quality: "天", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_011", name: "破禁珠", price: 18000, width: 2, height: 2, quality: "天", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_012", name: "万灵伞", price: 16000, width: 2, height: 3, quality: "天", type: "武器", desc: "辅助类法器。" }),
-  createItem({ id: "wq_013", name: "金蚨子母刃", price: 2600, width: 2, height: 2, quality: "玄", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_014", name: "玄铁飞天盾", price: 2400, width: 2, height: 2, quality: "玄", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_015", name: "青蛟旗", price: 5200, width: 2, height: 3, quality: "地", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_016", name: "乌龙夺", price: 1800, width: 1, height: 2, quality: "玄", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_017", name: "无形针", price: 2600, width: 1, height: 2, quality: "地", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_018", name: "天雷子", price: 6200, width: 1, height: 1, quality: "地", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_019", name: "五行罩", price: 3600, width: 2, height: 2, quality: "地", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_020", name: "金罡灭魔雷", price: 12000, width: 1, height: 1, quality: "天", type: "武器", desc: "攻防类法器。" }),
-  createItem({ id: "wq_021", name: "升仙令", price: 26000, width: 2, height: 2, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_022", name: "金阙玉书", price: 72000, width: 3, height: 4, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_023", name: "天机府", price: 42000, width: 4, height: 4, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_024", name: "九霄殿", price: 56000, width: 4, height: 4, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_025", name: "须弥芥子空间", price: 120000, width: 5, height: 5, quality: "圣", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_026", name: "化龙玺", price: 38000, width: 3, height: 3, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_027", name: "血魂瓶", price: 18000, width: 2, height: 2, quality: "地", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_028", name: "血晶棺", price: 32000, width: 3, height: 4, quality: "天", type: "武器", desc: "功能类法器。" }),
-  createItem({ id: "wq_029", name: "引魂钟", price: 5200, width: 2, height: 2, quality: "地", type: "武器", desc: "伙伴类法器。" }),
-  createItem({ id: "wq_030", name: "魔尘幡", price: 12000, width: 2, height: 3, quality: "地", type: "武器", desc: "功能不详类法器。" }),
-  createItem({ id: "wq_031", name: "青蝉钟", price: 8800, width: 2, height: 2, quality: "地", type: "武器", desc: "功能不详类法器。" }),
-  createItem({ id: "wq_032", name: "血魔剑", price: 22000, width: 2, height: 3, quality: "天", type: "武器", desc: "魔器。" }),
-  createItem({ id: "wq_033", name: "魔龙刃", price: 62000, width: 3, height: 4, quality: "天", type: "武器", desc: "魔器。" }),
-  createItem({ id: "wq_034", name: "三神白骨幡", price: 32000, width: 3, height: 4, quality: "天", type: "武器", desc: "魔器。" }),
-  createItem({ id: "wq_035", name: "分界镜", price: 26000, width: 2, height: 2, quality: "天", type: "武器", desc: "魔器。" }),
-  createItem({ id: "wq_036", name: "封仙珠", price: 120000, width: 4, height: 4, quality: "圣", type: "武器", desc: "仙器。" }),
-  createItem({ id: "wq_037", name: "仙牌", price: 86000, width: 3, height: 3, quality: "圣", type: "武器", desc: "仙器。" }),
-  createItem({ id: "wq_038", name: "摄灵天网", price: 96000, width: 4, height: 4, quality: "圣", type: "武器", desc: "仙器。" }),
-  createItem({ id: "wq_039", name: "斩元仙剑", price: 150000, width: 5, height: 5, quality: "圣", type: "武器", desc: "仙器。" }),
-  createItem({ id: "wq_040", name: "蛟纹长剑", price: 6800, width: 2, height: 2, quality: "地", type: "武器", desc: "灵具。" }),
-  createItem({ id: "wq_041", name: "金莹剑", price: 7200, width: 2, height: 2, quality: "地", type: "武器", desc: "灵具。" }),
-  createItem({ id: "wq_042", name: "辟火宝衣", price: 16000, width: 2, height: 3, quality: "地", type: "武器", desc: "辅助类法宝。" }),
-  createItem({ id: "wq_043", name: "寒冰珠", price: 16000, width: 2, height: 2, quality: "地", type: "武器", desc: "辅助类法宝。" }),
-  createItem({ id: "wq_044", name: "风雷翅", price: 78000, width: 3, height: 4, quality: "天", type: "武器", desc: "辅助类法宝。" }),
-  createItem({ id: "wq_045", name: "七真宝", price: 52000, width: 4, height: 4, quality: "天", type: "武器", desc: "辅助类法宝。" }),
-  createItem({ id: "wq_046", name: "逆星盘", price: 32000, width: 3, height: 3, quality: "天", type: "武器", desc: "辅助类法宝。" }),
-  createItem({ id: "wq_047", name: "金雷剑", price: 42000, width: 3, height: 3, quality: "天", type: "武器", desc: "攻防类法宝。" }),
-  createItem({ id: "wq_048", name: "皇麟甲", price: 32000, width: 3, height: 3, quality: "天", type: "武器", desc: "攻防类法宝。" }),
-  createItem({ id: "wq_049", name: "朱雀环", price: 26000, width: 2, height: 2, quality: "天", type: "武器", desc: "攻防类法宝。" }),
-  createItem({ id: "wq_050", name: "青龙追魂锁", price: 36000, width: 3, height: 3, quality: "天", type: "武器", desc: "攻防类法宝。" }),
-  createItem({ id: "wq_051", name: "青冥针符宝", price: 18000, width: 1, height: 2, quality: "地", type: "武器", desc: "符宝类。" }),
-  createItem({ id: "wq_052", name: "蓝色蛟龙符宝", price: 28000, width: 2, height: 3, quality: "天", type: "武器", desc: "符宝类。" }),
-  createItem({ id: "wq_053", name: "乾坤塔", price: 92000, width: 4, height: 4, quality: "圣", type: "武器", desc: "真宝与升级法宝类。" }),
-  createItem({ id: "wq_054", name: "万剑图", price: 52000, width: 4, height: 4, quality: "天", type: "武器", desc: "真宝与升级法宝类。" }),
-  createItem({ id: "wq_055", name: "鸣魂珠", price: 22000, width: 2, height: 2, quality: "地", type: "武器", desc: "功能类法宝。" }),
-  createItem({ id: "wq_056", name: "摄魂幡", price: 32000, width: 3, height: 3, quality: "天", type: "武器", desc: "功能类法宝。" }),
-  createItem({ id: "wq_057", name: "聚灵珠", price: 18000, width: 2, height: 2, quality: "地", type: "武器", desc: "修炼类法宝。" }),
-  createItem({ id: "wq_058", name: "光阴之丝", price: 82000, width: 3, height: 3, quality: "圣", type: "武器", desc: "修炼类法宝。" }),
-  createItem({ id: "wq_059", name: "花篮古宝", price: 32000, width: 2, height: 3, quality: "天", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_060", name: "玄黄镜", price: 42000, width: 3, height: 3, quality: "天", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_061", name: "千重峰", price: 46000, width: 4, height: 4, quality: "天", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_062", name: "太玄八卦图", price: 52000, width: 4, height: 4, quality: "天", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_063", name: "玄天之宝", price: 180000, width: 5, height: 5, quality: "圣", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_064", name: "混沌万灵榜", price: 170000, width: 5, height: 5, quality: "圣", type: "武器", desc: "古宝与灵宝。" }),
-  createItem({ id: "wq_065", name: "混魔旗", price: 42000, width: 3, height: 4, quality: "天", type: "武器", desc: "魔宝。" }),
-  createItem({ id: "wq_066", name: "子母真魔幡", price: 62000, width: 4, height: 4, quality: "天", type: "武器", desc: "魔宝。" }),
-  createItem({ id: "wq_067", name: "玄天如意刃", price: 120000, width: 5, height: 5, quality: "圣", type: "武器", desc: "魔宝。" }),
-  createItem({ id: "wq_068", name: "玄天花树", price: 128000, width: 5, height: 5, quality: "圣", type: "武器", desc: "魔宝。" }),
-  createItem({ id: "wq_069", name: "玄天黑戈", price: 140000, width: 5, height: 5, quality: "圣", type: "武器", desc: "魔宝。" }),
-
-  // ==================== 典籍 / 材料 -> 杂项 ====================
-  createItem({ id: "zx_001", name: "天南手札", price: 1200, width: 1, height: 2, quality: "黄", type: "杂项", desc: "记录了越国及邻近地区的风土人情和奇闻异事。" }),
-  createItem({ id: "zx_002", name: "五行初级咒决大全", price: 600, width: 1, height: 2, quality: "黄", type: "杂项", desc: "提供修仙者入门级的法术教育。" }),
-  createItem({ id: "zx_003", name: "水咒符法基础", price: 620, width: 1, height: 2, quality: "黄", type: "杂项", desc: "提供入门级水系咒法与符法基础。" }),
-  createItem({ id: "zx_004", name: "基础咒决残本", price: 180, width: 1, height: 1, quality: "凡", type: "杂项", desc: "修仙入门残本。" }),
-  createItem({ id: "zx_005", name: "青溪笔录", price: 1200, width: 1, height: 2, quality: "黄", type: "杂项", desc: "保存了青溪真人关于越国秘史的珍贵记述。" }),
-  createItem({ id: "zx_006", name: "兽皮书", price: 4600, width: 2, height: 2, quality: "玄", type: "杂项", desc: "藏有疾风九变、血影遁、匿风术等秘术。" }),
-  createItem({ id: "zx_007", name: "云霄心得", price: 5200, width: 2, height: 2, quality: "玄", type: "杂项", desc: "齐云霄对炼器艺术的深刻见解。" }),
-  createItem({ id: "zx_008", name: "万灵真经", price: 16000, width: 2, height: 3, quality: "地", type: "杂项", desc: "揭示鬼灵门修行法门的典籍。" }),
-  createItem({ id: "zx_009", name: "傀儡真经", price: 22000, width: 2, height: 3, quality: "地", type: "杂项", desc: "揭示傀儡操控之术的核心典籍。" }),
-  createItem({ id: "zx_010", name: "洞玄解", price: 3600, width: 2, height: 2, quality: "玄", type: "杂项", desc: "黄枫谷的内部典籍。" }),
-  createItem({ id: "zx_011", name: "弄焰决", price: 4200, width: 2, height: 2, quality: "玄", type: "杂项", desc: "吴仙师的独创控火技艺。" }),
-  createItem({ id: "zx_012", name: "丹道评鉴", price: 2600, width: 2, height: 2, quality: "玄", type: "杂项", desc: "详述了乱星海丹药的分类与效果。" }),
-  createItem({ id: "zx_013", name: "天地奇石录", price: 3200, width: 2, height: 2, quality: "玄", type: "杂项", desc: "收录了稀世材料的详尽说明。" }),
-  createItem({ id: "zx_014", name: "法阵要诀", price: 12000, width: 2, height: 3, quality: "地", type: "杂项", desc: "凝聚了辛如音对法阵构造的理解。" }),
-  createItem({ id: "zx_015", name: "天鹏之誓", price: 36000, width: 3, height: 3, quality: "地", type: "杂项", desc: "承载着天鹏族的古老誓言与力量。" }),
-  createItem({ id: "zx_016", name: "朱砂", price: 40, width: 1, height: 1, quality: "凡", type: "杂项", desc: "炼制低阶符箓的材料。" }),
-  createItem({ id: "zx_017", name: "铁精", price: 2200, width: 1, height: 2, quality: "玄", type: "杂项", desc: "法宝原料。" }),
-  createItem({ id: "zx_018", name: "铜精", price: 2000, width: 1, height: 2, quality: "玄", type: "杂项", desc: "法宝原料。" }),
-  createItem({ id: "zx_019", name: "银精", price: 6000, width: 1, height: 2, quality: "地", type: "杂项", desc: "法宝原料。" }),
-  createItem({ id: "zx_020", name: "坞石", price: 180, width: 1, height: 1, quality: "凡", type: "杂项", desc: "耐高温材料。" }),
-  createItem({ id: "zx_021", name: "云精石", price: 800, width: 1, height: 1, quality: "黄", type: "杂项", desc: "炼制二级傀儡的材料。" }),
-  createItem({ id: "zx_022", name: "铁木", price: 1800, width: 2, height: 2, quality: "玄", type: "杂项", desc: "制作傀儡的材料之一。" }),
-  createItem({ id: "zx_023", name: "炼晶", price: 16000, width: 2, height: 2, quality: "地", type: "杂项", desc: "用于加固法宝。" }),
-  createItem({ id: "zx_024", name: "幻梦石", price: 2600, width: 1, height: 2, quality: "玄", type: "杂项", desc: "用于传送阵的材料。" }),
-  createItem({ id: "zx_025", name: "玛瑙角", price: 3200, width: 1, height: 2, quality: "玄", type: "杂项", desc: "炼丹的珍惜材料。" }),
-  createItem({ id: "zx_026", name: "千叶露", price: 3000, width: 1, height: 2, quality: "玄", type: "杂项", desc: "伴妖草的汁液。" }),
-  createItem({ id: "zx_027", name: "魄石", price: 6800, width: 1, height: 2, quality: "地", type: "杂项", desc: "用于傀儡术和鬼道修士修炼。" }),
-  createItem({ id: "zx_028", name: "青金石", price: 12000, width: 2, height: 2, quality: "地", type: "杂项", desc: "又叫吸灵石。" }),
-  createItem({ id: "zx_029", name: "醇液", price: 18000, width: 1, height: 2, quality: "地", type: "杂项", desc: "灵眼之树流出的灵液，可配明清灵水。" }),
-  createItem({ id: "zx_030", name: "庚精", price: 46000, width: 2, height: 2, quality: "天", type: "杂项", desc: "锐金之宝，可使法宝威力倍增。" }),
-  createItem({ id: "zx_031", name: "血凤木", price: 18000, width: 2, height: 3, quality: "地", type: "杂项", desc: "炼制上古元婴级傀儡的材料。" }),
-  createItem({ id: "zx_032", name: "罡银沙", price: 16000, width: 2, height: 2, quality: "地", type: "杂项", desc: "可使法宝更加坚固。" }),
-  createItem({ id: "zx_033", name: "魔髓钻", price: 36000, width: 2, height: 2, quality: "天", type: "杂项", desc: "炼制魔龙刃的唯一材料。" }),
-  createItem({ id: "zx_034", name: "火熔晶", price: 14000, width: 2, height: 2, quality: "地", type: "杂项", desc: "炼制顶阶火属性法器的绝佳材料。" }),
-  createItem({ id: "zx_035", name: "寒髓", price: 32000, width: 2, height: 2, quality: "天", type: "杂项", desc: "炼制回阳真水的主原料。" }),
-  createItem({ id: "zx_036", name: "玉橡胶", price: 16000, width: 2, height: 2, quality: "地", type: "杂项", desc: "制作奇门法宝、机关傀儡的最佳材料。" }),
-  createItem({ id: "zx_037", name: "五行玉", price: 18000, width: 2, height: 2, quality: "地", type: "杂项", desc: "炼制玉质法宝的顶阶材料。" }),
-  createItem({ id: "zx_038", name: "化神泥", price: 42000, width: 2, height: 3, quality: "天", type: "杂项", desc: "又称幻形膏，可随意变形炼制成器。" }),
-  createItem({ id: "zx_039", name: "灵料", price: 62000, width: 3, height: 3, quality: "天", type: "杂项", desc: "炼制通天灵宝的材料。" }),
-  createItem({ id: "zx_040", name: "传界香", price: 18000, width: 1, height: 2, quality: "地", type: "杂项", desc: "点燃此香可隔界传递消息。" }),
-  createItem({ id: "zx_041", name: "蜃楼石", price: 18000, width: 2, height: 2, quality: "地", type: "杂项", desc: "小极宫护岛大阵的阵眼。" }),
-  createItem({ id: "zx_042", name: "阴灵水", price: 12000, width: 1, height: 2, quality: "地", type: "杂项", desc: "又叫沉水，可让法器临时附加阴火。" }),
-  createItem({ id: "zx_043", name: "万年玄玉", price: 26000, width: 2, height: 2, quality: "地", type: "杂项", desc: "可产生寒髓。" }),
-  createItem({ id: "zx_044", name: "蓝元晶", price: 18000, width: 2, height: 2, quality: "地", type: "杂项", desc: "炼制飞剑的材料。" }),
-  createItem({ id: "zx_045", name: "天晶碑", price: 32000, width: 2, height: 3, quality: "天", type: "杂项", desc: "又叫飞仙石，用于加固昆吾封印。" }),
-  createItem({ id: "zx_046", name: "太阳精石", price: 36000, width: 2, height: 2, quality: "天", type: "杂项", desc: "只有经过太阳精火凝炼才可形成。" }),
-  createItem({ id: "zx_047", name: "顶阶灵石", price: 52000, width: 2, height: 2, quality: "天", type: "杂项", desc: "布置上古奇阵和突破瓶颈的必须之物。" }),
-  createItem({ id: "zx_048", name: "化界石", price: 78000, width: 3, height: 3, quality: "圣", type: "杂项", desc: "灵界也难得一见的材料，可克服界面之力。" }),
-  createItem({ id: "zx_049", name: "神血", price: 86000, width: 2, height: 2, quality: "圣", type: "杂项", desc: "灵族圣灵级存在死后体内所留。" }),
-];
+export const ITEM_CATALOG = RAW_ITEMS.trim()
+  .split("\n")
+  .map((line) => line.trim())
+  .filter(Boolean)
+  .map((line) => {
+    const [type, name, quality, shape, price, desc] = line.split("\t");
+    counters[type] += 1;
+    const id = `${TYPE_SERIAL[type]}_${String(counters[type]).padStart(3, "0")}`;
+    return createItem({ id, type, name, quality, shape, price, desc });
+  });
