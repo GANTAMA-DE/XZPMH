@@ -1,6 +1,6 @@
 export const ITEM_TYPES = ["功法", "丹药", "武器", "符箓", "阵法", "灵植", "灵兽", "杂项"];
 
-export const ITEM_TYPE_IDS = {
+export const ITEM_TYPE_IDS: Record<string, string> = {
   功法: "gf",
   丹药: "dy",
   武器: "wq",
@@ -17,12 +17,41 @@ export const ITEM_SHAPES = Array.from({ length: 10 }, (_, x) =>
   Array.from({ length: 10 }, (_, y) => `${x + 1}x${y + 1}`),
 ).flat();
 
-const parseShape = (shape) => {
+export interface CatalogItem {
+  id: string;
+  name: string;
+  price: number;
+  width: number;
+  height: number;
+  size: number;
+  shape: string;
+  quality: string;
+  type: string;
+  desc: string;
+}
+
+function parseShape(shape: string) {
   const [width, height] = shape.split("x").map(Number);
   return { width, height };
-};
+}
 
-const createItem = ({ id, type, name, quality, shape, price, desc }) => {
+function createItem({
+  id,
+  type,
+  name,
+  quality,
+  shape,
+  price,
+  desc,
+}: {
+  id: string;
+  type: string;
+  name: string;
+  quality: string;
+  shape: string;
+  price: number | string;
+  desc: string;
+}): CatalogItem {
   const { width, height } = parseShape(shape);
   return {
     id,
@@ -36,7 +65,7 @@ const createItem = ({ id, type, name, quality, shape, price, desc }) => {
     type,
     desc,
   };
-};
+}
 
 const RAW_ITEMS = `
 功法	基础引气诀	凡	1x2	160	散修入门最常用的引气口诀
@@ -441,7 +470,7 @@ const RAW_ITEMS = `
 杂项	诸神黄昏号	圣	3x1	9000000	远古文明遗留，具备抹杀星球实力的终极傀儡
 `;
 
-const TYPE_SERIAL = {
+const TYPE_SERIAL: Record<string, string> = {
   功法: "gf",
   丹药: "dy",
   武器: "wq",
@@ -452,9 +481,9 @@ const TYPE_SERIAL = {
   杂项: "zx",
 };
 
-const counters = Object.fromEntries(Object.keys(TYPE_SERIAL).map((type) => [type, 0]));
+const counters = Object.fromEntries(Object.keys(TYPE_SERIAL).map((type) => [type, 0])) as Record<string, number>;
 
-export const ITEM_CATALOG = RAW_ITEMS.trim()
+export const ITEM_CATALOG: CatalogItem[] = RAW_ITEMS.trim()
   .split("\n")
   .map((line) => line.trim())
   .filter(Boolean)
